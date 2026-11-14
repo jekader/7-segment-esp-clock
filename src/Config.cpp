@@ -13,6 +13,9 @@ void assignIfPresent(ClockConfig& config, const String& key, const String& value
     else if (key == "sync_minutes") config.syncIntervalMinutes = value.toInt();
     else if (key == "hour_12") config.use12Hour = value == "1";
     else if (key == "colon_blink") config.blinkColon = value == "1";
+    else if (key == "periodic_date") config.periodicDateEnabled = value == "1";
+    else if (key == "date_seconds") config.dateDisplaySeconds = value.toInt();
+    else if (key == "date_interval") config.dateIntervalSeconds = value.toInt();
     else if (key == "brightness") config.brightness = value.toInt();
     else if (key == "sensor_override") config.sensorOverride = value == "1";
     else if (key == "auto_brightness") config.autoBrightness = value == "1";
@@ -55,6 +58,9 @@ void ConfigStore::sanitize(ClockConfig& config) {
     if (config.ntpServer1.isEmpty()) config.ntpServer1 = "pool.ntp.org";
     if (config.timezone.isEmpty()) config.timezone = "UTC0";
     config.syncIntervalMinutes = constrain(config.syncIntervalMinutes, 5UL, 1440UL);
+    config.dateDisplaySeconds = constrain(config.dateDisplaySeconds, 1UL, 60UL);
+    config.dateIntervalSeconds = constrain(config.dateIntervalSeconds, 10UL, 86400UL);
+    config.dateDisplaySeconds = min(config.dateDisplaySeconds, config.dateIntervalSeconds);
     config.brightness = constrain(config.brightness, 1, 8);
     config.lightDark = constrain(config.lightDark, 0, 1023);
     config.lightBright = constrain(config.lightBright, 1, 1023);
@@ -87,6 +93,9 @@ bool ConfigStore::save(const ClockConfig& config) {
     file.print("sync_minutes="); file.println(clean.syncIntervalMinutes);
     file.print("hour_12="); file.println(clean.use12Hour ? 1 : 0);
     file.print("colon_blink="); file.println(clean.blinkColon ? 1 : 0);
+    file.print("periodic_date="); file.println(clean.periodicDateEnabled ? 1 : 0);
+    file.print("date_seconds="); file.println(clean.dateDisplaySeconds);
+    file.print("date_interval="); file.println(clean.dateIntervalSeconds);
     file.print("brightness="); file.println(clean.brightness);
     file.print("sensor_override="); file.println(clean.sensorOverride ? 1 : 0);
     file.print("auto_brightness="); file.println(clean.autoBrightness ? 1 : 0);

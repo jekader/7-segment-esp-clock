@@ -11,6 +11,9 @@ struct ClockConfig {
     uint32_t syncIntervalMinutes = 60;
     bool use12Hour = false;
     bool blinkColon = true;
+    bool periodicDateEnabled = false;
+    uint32_t dateDisplaySeconds = 3;
+    uint32_t dateIntervalSeconds = 300;
     uint8_t brightness = 8;
     bool sensorOverride = false;
     bool autoBrightness = false;

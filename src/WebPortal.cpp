@@ -36,6 +36,9 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="sync">NTP sync interval (minutes)</label><input id="sync" name="sync" type="number" min="5" max="1440" value="{{SYNC}}" required>
 <label class="check"><input name="use12Hour" type="checkbox" value="1" {{HOUR12}}>Use 12-hour format (fourth dot indicates PM)</label>
 <label class="check"><input name="blinkColon" type="checkbox" value="1" {{COLONBLINK}}>Flash the time colon (unchecked keeps it solid)</label>
+<label class="check"><input name="periodicDate" type="checkbox" value="1" {{PERIODICDATE}}>Show the date periodically</label>
+<label for="dateDisplaySeconds">Date display duration X (seconds)</label><input id="dateDisplaySeconds" name="dateDisplaySeconds" type="number" min="1" max="60" value="{{DATEDURATION}}" required>
+<label for="dateIntervalSeconds">Date display interval Y (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>Show the date every Y seconds for X seconds. X cannot exceed Y.</small>
 <h2>Hardware override</h2>
 <label class="check"><input name="sensorOverride" id="sensorOverride" type="checkbox" value="1" {{SENSOROVERRIDE}} onchange="byId('sensorOptions').hidden=!this.checked"><strong>I have sensor(s) connected</strong></label>
 <small>Disables UP and DOWN. Leave unchecked for the unmodified board and normal buttons. SET remains available for the configuration portal.</small>
@@ -220,6 +223,9 @@ void WebPortal::handleRoot() {
     page.replace("{{BRIGHTNESS}}", String(display_.brightness()));
     page.replace("{{HOUR12}}", config.use12Hour ? "checked" : "");
     page.replace("{{COLONBLINK}}", config.blinkColon ? "checked" : "");
+    page.replace("{{PERIODICDATE}}", config.periodicDateEnabled ? "checked" : "");
+    page.replace("{{DATEDURATION}}", String(config.dateDisplaySeconds));
+    page.replace("{{DATEINTERVAL}}", String(config.dateIntervalSeconds));
     page.replace("{{SENSOROVERRIDE}}", config.sensorOverride ? "checked" : "");
     page.replace("{{AUTOBRIGHTNESS}}", config.autoBrightness ? "checked" : "");
     page.replace("{{THPSENSOR}}", config.thpSensorEnabled ? "checked" : "");
@@ -283,6 +289,9 @@ void WebPortal::handleSettings() {
     updated.syncIntervalMinutes = server_.arg("sync").toInt();
     updated.use12Hour = server_.arg("use12Hour") == "1";
     updated.blinkColon = server_.arg("blinkColon") == "1";
+    updated.periodicDateEnabled = server_.arg("periodicDate") == "1";
+    updated.dateDisplaySeconds = server_.arg("dateDisplaySeconds").toInt();
+    updated.dateIntervalSeconds = server_.arg("dateIntervalSeconds").toInt();
     updated.brightness = server_.arg("brightness").toInt();
     updated.sensorOverride = server_.arg("sensorOverride") == "1";
     updated.autoBrightness = server_.arg("autoBrightness") == "1";

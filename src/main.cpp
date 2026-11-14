@@ -30,6 +30,9 @@ time_t lastNtpSync = 0;
 bool rtcValid = false;
 bool showIpAfterBoot = true;
 bool showDate = false;
+bool periodicDateActive = false;
+uint32_t nextPeriodicDateAt = 0;
+uint32_t periodicDateUntil = 0;
 uint32_t lastRenderAt = 0;
 uint32_t lastAutoBrightnessAt = 0;
 
@@ -122,6 +125,27 @@ void startWifi() {
     disconnectedSince = millis();
     Serial.printf("wifi: connecting to %s\n", config.ssid.c_str());
 }
+
+void updatePeriodicDate(uint32_t nowMs) {
+    const ClockConfig& config = configStore.get();
+    if (!config.periodicDateEnabled) {
+        periodicDateActive = false;
+        nextPeriodicDateAt = 0;
+        return;
+    }
+
+    const uint32_t intervalMs = config.dateIntervalSeconds * 1000UL;
+    if (nextPeriodicDateAt == 0) nextPeriodicDateAt = nowMs + intervalMs;
+
+    if (!periodicDateActive && static_cast<int32_t>(nowMs - nextPeriodicDateAt) >= 0) {
+        periodicDateActive = true;
+        periodicDateUntil = nowMs + config.dateDisplaySeconds * 1000UL;
+        nextPeriodicDateAt = nowMs + intervalMs;
+    }
+    if (periodicDateActive && static_cast<int32_t>(nowMs - periodicDateUntil) >= 0) {
+        periodicDateActive = false;
+    }
+}
 }
 
 // The ESP8266 core calls this weak hook when configuring its SNTP client.
@@ -170,6 +194,7 @@ void loop() {
     portal.handle();
     display.update();
     sensors.update();
+    updatePeriodicDate(nowMs);
 
     if (buttons.setWasHeld()) portal.startAccessPoint();
 
@@ -224,7 +249,7 @@ void loop() {
         if (now >= kMinimumValidTime) {
             struct tm local {};
             localtime_r(&now, &local);
-            if (showDate) display.showDate(local);
+            if (showDate || periodicDateActive) display.showDate(local);
             else display.showTime(local, configStore.get().use12Hour,
                                   !configStore.get().blinkColon || (nowMs / 500) % 2 == 0);
         } else {
