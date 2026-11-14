@@ -12,6 +12,7 @@ void assignIfPresent(ClockConfig& config, const String& key, const String& value
     else if (key == "timezone") config.timezone = value;
     else if (key == "sync_minutes") config.syncIntervalMinutes = value.toInt();
     else if (key == "hour_12") config.use12Hour = value == "1";
+    else if (key == "colon_blink") config.blinkColon = value == "1";
     else if (key == "brightness") config.brightness = value.toInt();
     else if (key == "sensor_override") config.sensorOverride = value == "1";
     else if (key == "auto_brightness") config.autoBrightness = value == "1";
@@ -85,6 +86,7 @@ bool ConfigStore::save(const ClockConfig& config) {
     file.print("timezone="); file.println(clean.timezone);
     file.print("sync_minutes="); file.println(clean.syncIntervalMinutes);
     file.print("hour_12="); file.println(clean.use12Hour ? 1 : 0);
+    file.print("colon_blink="); file.println(clean.blinkColon ? 1 : 0);
     file.print("brightness="); file.println(clean.brightness);
     file.print("sensor_override="); file.println(clean.sensorOverride ? 1 : 0);
     file.print("auto_brightness="); file.println(clean.autoBrightness ? 1 : 0);

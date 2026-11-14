@@ -5,7 +5,8 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [jekader/dCLC](
 ## Features
 
 - Restores local time from the DS1302 at boot and periodically writes NTP time back to the RTC.
-- Configurable NTP servers, POSIX timezone, sync interval, and 12/24-hour display.
+- Configurable NTP servers, POSIX timezone, sync interval, 12/24-hour display, and flashing or solid colon.
+- Scrolls the assigned IP address once after the first network connection following boot.
 - Responsive local web UI with live time, connection, RTC, and synchronization status.
 - Eight native TM1650 brightness levels, controlled from the UI or the brightness button.
 - Open captive portal for Wi-Fi setup; no internet-hosted web assets.
@@ -52,7 +53,7 @@ To enter the ESP8266 flashing bootloader, disconnect power, hold **SET**, reconn
 
 On first boot, or when Wi-Fi remains unavailable for 30 seconds, the clock starts an open AP named `7SEG-XXXXXX`. Connect to it and open **http://192.168.4.1/**. Captive-network detection should open this page automatically.
 
-Holding **SET** for three seconds also enables the AP. In that manually requested mode it remains active until restart, even if station Wi-Fi reconnects.
+Holding **SET** for three seconds also enables the AP. The AP stops automatically whenever a station Wi-Fi connection is established; use the assigned station IP to access the portal afterward.
 
 The settings page changes take effect after a short automatic restart. Brightness changes apply and save immediately. Configuration is stored in LittleFS; the Wi-Fi password is **not encrypted** in flash or in the local configuration page.
 
@@ -73,7 +74,7 @@ The POSIX timezone field accepts values such as:
 
 ### Buttons
 
-- **SET (hold 3 s):** open and pin the configuration AP.
+- **SET (hold 3 s):** open the configuration AP until station Wi-Fi connects.
 - **Date (press):** toggle between time and day/month.
 - **Brightness (press):** cycle through levels 1–8 and save the selected level.
 

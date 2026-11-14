@@ -28,11 +28,13 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Signal strength is shown in dBm (higher is better).</small>
 <label for="ssid">Wi-Fi network</label><input id="ssid" name="ssid" maxlength="32" value="{{SSID}}" autocomplete="off" required>
 <label for="password">Wi-Fi password</label><input id="password" name="password" type="password" maxlength="64" value="{{PASSWORD}}" autocomplete="new-password"><small>Leave empty for an open network.</small>
+<label class="check"><input id="showPassword" type="checkbox">Show Wi-Fi password</label>
 <label for="timezone">POSIX timezone</label><input id="timezone" name="timezone" maxlength="63" value="{{TIMEZONE}}" required><small>Examples: <code>UTC0</code> or <code>CET-1CEST,M3.5.0,M10.5.0/3</code>. DST switches automatically when daylight-saving rules are included; fixed offsets such as <code>UTC0</code> never switch.</small>
 <label for="ntp1">Primary NTP server</label><input id="ntp1" name="ntp1" maxlength="63" value="{{NTP1}}" required>
 <label for="ntp2">Secondary NTP server</label><input id="ntp2" name="ntp2" maxlength="63" value="{{NTP2}}">
 <label for="sync">NTP sync interval (minutes)</label><input id="sync" name="sync" type="number" min="5" max="1440" value="{{SYNC}}" required>
 <label class="check"><input name="use12Hour" type="checkbox" value="1" {{HOUR12}}>Use 12-hour format (fourth dot indicates PM)</label>
+<label class="check"><input name="blinkColon" type="checkbox" value="1" {{COLONBLINK}}>Flash the time colon (unchecked keeps it solid)</label>
 <h2>Hardware override</h2>
 <label class="check"><input name="sensorOverride" id="sensorOverride" type="checkbox" value="1" {{SENSOROVERRIDE}} onchange="byId('sensorOptions').hidden=!this.checked"><strong>I have sensor(s) connected</strong></label>
 <small>Disables UP and DOWN. Leave unchecked for the unmodified board and normal buttons. SET remains available for the configuration portal.</small>
@@ -88,6 +90,7 @@ status.textContent=networks.length?networks.length+' network'+(networks.length==
 }catch(e){status.textContent='Scan display error: '+(e.message||e);}
 });
 }
+byId('showPassword').addEventListener('change',function(){byId('password').type=this.checked?'text':'password';});
 byId('networks').addEventListener('change',function(e){if(e.target.value)byId('ssid').value=e.target.value;});
 byId('scanWifiButton').addEventListener('click',scanWifi);
 function serializeForm(form){var fields=[];for(var i=0;i<form.elements.length;i++){var field=form.elements[i];if(!field.name||field.disabled)continue;if((field.type==='checkbox'||field.type==='radio')&&!field.checked)continue;fields.push(encodeURIComponent(field.name)+'='+encodeURIComponent(field.value));}return fields.join('&');}
@@ -213,6 +216,7 @@ void WebPortal::handleRoot() {
     page.replace("{{SYNC}}", String(config.syncIntervalMinutes));
     page.replace("{{BRIGHTNESS}}", String(display_.brightness()));
     page.replace("{{HOUR12}}", config.use12Hour ? "checked" : "");
+    page.replace("{{COLONBLINK}}", config.blinkColon ? "checked" : "");
     page.replace("{{SENSOROVERRIDE}}", config.sensorOverride ? "checked" : "");
     page.replace("{{AUTOBRIGHTNESS}}", config.autoBrightness ? "checked" : "");
     page.replace("{{THPSENSOR}}", config.thpSensorEnabled ? "checked" : "");
@@ -275,6 +279,7 @@ void WebPortal::handleSettings() {
     updated.timezone = server_.arg("timezone");
     updated.syncIntervalMinutes = server_.arg("sync").toInt();
     updated.use12Hour = server_.arg("use12Hour") == "1";
+    updated.blinkColon = server_.arg("blinkColon") == "1";
     updated.brightness = server_.arg("brightness").toInt();
     updated.sensorOverride = server_.arg("sensorOverride") == "1";
     updated.autoBrightness = server_.arg("autoBrightness") == "1";

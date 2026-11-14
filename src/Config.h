@@ -10,6 +10,7 @@ struct ClockConfig {
     String timezone = "UTC0";
     uint32_t syncIntervalMinutes = 60;
     bool use12Hour = false;
+    bool blinkColon = true;
     uint8_t brightness = 8;
     bool sensorOverride = false;
     bool autoBrightness = false;

@@ -28,7 +28,7 @@ uint32_t ntpUpdateDelayMs = 60UL * 60UL * 1000UL;
 uint32_t disconnectedSince = 0;
 time_t lastNtpSync = 0;
 bool rtcValid = false;
-bool portalPinned = false;
+bool showIpAfterBoot = true;
 bool showDate = false;
 uint32_t lastRenderAt = 0;
 uint32_t lastAutoBrightnessAt = 0;
@@ -149,10 +149,7 @@ void setup() {
     if (rtcValid) restoreTimeFromRtc();
 
     portal.begin(statusJson);
-    if (buttons.setIsDown()) {
-        portalPinned = true;
-        portal.startAccessPoint();
-    }
+    if (buttons.setIsDown()) portal.startAccessPoint();
     startWifi();
 
     configTime(config.timezone.c_str(), config.ntpServer1.c_str(),
@@ -169,10 +166,7 @@ void loop() {
     display.update();
     sensors.update();
 
-    if (buttons.setWasHeld()) {
-        portalPinned = true;
-        portal.startAccessPoint();
-    }
+    if (buttons.setWasHeld()) portal.startAccessPoint();
 
     const bool datePressed = buttons.wasPressed(Buttons::Date);
     const bool brightnessPressed = buttons.wasPressed(Buttons::Brightness);
@@ -192,10 +186,15 @@ void loop() {
     const bool connected = WiFi.status() == WL_CONNECTED;
     if (connected) {
         if (disconnectedSince != 0) {
-            Serial.printf("wifi: connected, IP %s\n", WiFi.localIP().toString().c_str());
+            const String ip = WiFi.localIP().toString();
+            Serial.printf("wifi: connected, IP %s\n", ip.c_str());
+            if (showIpAfterBoot) {
+                display.showMessage("IP " + ip, 12000);
+                showIpAfterBoot = false;
+            }
             disconnectedSince = 0;
         }
-        if (!portalPinned) portal.stopAccessPoint();
+        portal.stopAccessPoint();
     } else {
         if (disconnectedSince == 0) disconnectedSince = nowMs;
         if (nowMs - disconnectedSince >= kWifiFailurePortalDelayMs) portal.startAccessPoint();
@@ -221,7 +220,8 @@ void loop() {
             struct tm local {};
             localtime_r(&now, &local);
             if (showDate) display.showDate(local);
-            else display.showTime(local, configStore.get().use12Hour, (nowMs / 500) % 2 == 0);
+            else display.showTime(local, configStore.get().use12Hour,
+                                  !configStore.get().blinkColon || (nowMs / 500) % 2 == 0);
         } else {
             hardwareDisplay.showText(portal.accessPointActive() ? "SET" : "NtP");
         }
