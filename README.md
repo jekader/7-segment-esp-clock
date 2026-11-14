@@ -11,6 +11,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [jekader/dCLC](
 - Eight native TM1650 brightness levels, controlled from the UI or the brightness button.
 - Open captive portal for Wi-Fi setup; no internet-hosted web assets.
 - On-demand Wi-Fi network scanning with signal strength and one-click SSID selection.
+- Browser-based OTA firmware updates at `/update`.
 - Automatic configuration AP after 30 seconds without Wi-Fi, or on demand by holding **SET** for three seconds.
 - Full printable seven-segment ASCII font and a scrolling, timed message interface for future integrations.
 - Optional hardware override for an LDR on A0 (automatic brightness) and a BME280 temperature/humidity/pressure sensor.
@@ -21,7 +22,7 @@ This firmware targets the unmodified 303WIFILC01:
 
 | Function | Hardware |
 | --- | --- |
-| MCU | ESP8266, 1 MB flash (`esp01_1m`) |
+| MCU | ESP8266, 1 MB flash (`esp01_1m`, 64 KB LittleFS) |
 | RTC | DS1302: CLK GPIO16, IO GPIO14, CE GPIO5 |
 | Display | TM1650 over I²C: SDA GPIO13, SCL GPIO12 |
 | SET button | GPIO0, active low |
@@ -56,6 +57,14 @@ On first boot, or when Wi-Fi remains unavailable for 30 seconds, the clock start
 Holding **SET** for three seconds also enables the AP. The AP stops automatically whenever a station Wi-Fi connection is established; use the assigned station IP to access the portal afterward.
 
 The settings page changes take effect after a short automatic restart. Brightness changes apply and save immediately. Configuration is stored in LittleFS; the Wi-Fi password is **not encrypted** in flash or in the local configuration page.
+
+### Browser OTA updates
+
+Open **http://CLOCK_IP/update**, select **Firmware**, and upload `.pio/build/303WIFILC01/firmware.bin`. No password is required.
+
+Only upload the filesystem image if you intentionally want to replace the configuration filesystem. The updater restarts the clock after a successful upload. Anyone who can reach the portal can update the firmware, so use it only on a trusted network. Keep USB serial access available for recovery.
+
+The firmware uses a 64 KB LittleFS layout to preserve enough contiguous space for OTA updates.
 
 ### Optional sensor hardware override
 

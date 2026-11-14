@@ -4,6 +4,7 @@
 #include "Display.h"
 
 #include <DNSServer.h>
+#include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
 #include <functional>
 
@@ -24,6 +25,7 @@ private:
     ConfigStore& config_;
     Tm1650Display& display_;
     ESP8266WebServer server_{80};
+    ESP8266HTTPUpdateServer httpUpdater_;
     DNSServer dnsServer_;
     StatusProvider statusProvider_;
     bool apActive_ = false;

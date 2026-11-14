@@ -24,6 +24,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <div><span>Pressure</span><strong id="pressure">—</strong></div><div><span>Light sensor (raw)</span><strong id="lightRaw">—</strong></div>
 </div><small id="sensorStatus"></small></section>
 <section class="card"><h2>Brightness</h2><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
+<section class="card" id="otaCard"><h2>Firmware update</h2><p>Upload a new firmware binary. The clock restarts after a successful update.</p><a href="/update">Open firmware updater</a></section>
 <form class="card" id="settings" method="post" action="/api/settings"><h2>Settings</h2>
 <label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Signal strength is shown in dBm (higher is better).</small>
 <label for="ssid">Wi-Fi network</label><input id="ssid" name="ssid" maxlength="32" value="{{SSID}}" autocomplete="off" required>
@@ -106,6 +107,8 @@ WebPortal::WebPortal(ConfigStore& config, Tm1650Display& display)
 
 void WebPortal::begin(StatusProvider statusProvider) {
     statusProvider_ = statusProvider;
+
+    httpUpdater_.setup(&server_);
 
     server_.on("/", HTTP_GET, [this]() { handleRoot(); });
     server_.on("/api/status", HTTP_GET, [this]() { handleStatus(); });

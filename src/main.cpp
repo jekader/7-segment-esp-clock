@@ -79,7 +79,9 @@ String statusJson() {
     json += ",";
     json += "\"ap\":" + String(portal.accessPointActive() ? "true" : "false") + ",";
     json += "\"apName\":\"" + jsonEscape(portal.accessPointName()) + "\",";
-    json += "\"apIp\":\"" + (portal.accessPointActive() ? WiFi.softAPIP().toString() : "") + "\"";
+    json += "\"apIp\":\"" + (portal.accessPointActive() ? WiFi.softAPIP().toString() : "") + "\",";
+    json += "\"freeHeap\":" + String(ESP.getFreeHeap()) + ",";
+    json += "\"otaSpace\":" + String(ESP.getFreeSketchSpace());
     json += "}";
     return json;
 }
@@ -157,6 +159,9 @@ void setup() {
     settimeofday_cb([]() { ntpSyncPending = true; });
 
     Serial.println(F("setup: complete"));
+    Serial.printf("system: free heap %u bytes, OTA space %u bytes\n",
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getFreeSketchSpace()));
 }
 
 void loop() {
