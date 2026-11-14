@@ -8,7 +8,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [jekader/dCLC](
 - Configurable NTP servers, POSIX timezone, sync interval, 12/24-hour display, and flashing or solid colon.
 - Optional periodic date display, disabled by default, with configurable duration and interval in seconds.
 - Scrolls the assigned IP address once after the first network connection following boot.
-- Responsive local web UI with live time, connection, RTC, and synchronization status.
+- Responsive local web UI with live time, connection, RTC, synchronization, uptime, and last reboot reason.
 - Eight native TM1650 brightness levels, controlled from the UI or the brightness button.
 - Open captive portal for Wi-Fi setup; no internet-hosted web assets.
 - On-demand Wi-Fi network scanning with signal strength and one-click SSID selection.

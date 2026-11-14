@@ -57,6 +57,23 @@ String formatTime(time_t value) {
     return String(text);
 }
 
+String formatUptime() {
+    const uint64_t totalSeconds = micros64() / 1000000ULL;
+    const uint32_t days = static_cast<uint32_t>(totalSeconds / 86400ULL);
+    const unsigned hours = static_cast<unsigned>((totalSeconds / 3600ULL) % 24ULL);
+    const unsigned minutes = static_cast<unsigned>((totalSeconds / 60ULL) % 60ULL);
+    const unsigned seconds = static_cast<unsigned>(totalSeconds % 60ULL);
+    char text[40];
+    if (days != 0) {
+        snprintf(text, sizeof(text), "%lu day%s, %02u:%02u:%02u",
+                 static_cast<unsigned long>(days), days == 1 ? "" : "s",
+                 hours, minutes, seconds);
+    } else {
+        snprintf(text, sizeof(text), "%02u:%02u:%02u", hours, minutes, seconds);
+    }
+    return String(text);
+}
+
 String statusJson() {
     const bool connected = WiFi.status() == WL_CONNECTED;
     const time_t now = time(nullptr);
@@ -66,6 +83,8 @@ String statusJson() {
     json += "\"ssid\":\"" + jsonEscape(WiFi.SSID()) + "\",";
     json += "\"ip\":\"" + (connected ? WiFi.localIP().toString() : "") + "\",";
     json += "\"lastSync\":\"" + (lastNtpSync ? jsonEscape(formatTime(lastNtpSync)) : "Never this boot") + "\",";
+    json += "\"uptime\":\"" + formatUptime() + "\",";
+    json += "\"resetReason\":\"" + jsonEscape(ESP.getResetReason()) + "\",";
     json += "\"rtcValid\":" + String(rtcValid ? "true" : "false") + ",";
     json += "\"brightness\":" + String(hardwareDisplay.brightness()) + ",";
     json += "\"sensorsEnabled\":" + String(configStore.get().sensorOverride ? "true" : "false") + ",";
