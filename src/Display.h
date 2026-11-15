@@ -20,6 +20,7 @@ public:
     void setBrightness(uint8_t level);
     uint8_t brightness() const { return brightness_; }
     void setPower(bool enabled);
+    bool powered() const { return power_; }
     void showText(const String& text, uint8_t dots = DisplayDot::None);
     void showTime(const struct tm& value, bool use12Hour, bool colonVisible);
     void showDate(const struct tm& value);

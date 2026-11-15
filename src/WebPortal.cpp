@@ -24,7 +24,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <div><span>Temperature</span><strong id="temperature">—</strong></div><div><span>Humidity</span><strong id="humidity">—</strong></div>
 <div><span>Pressure</span><strong id="pressure">—</strong></div><div><span>Light sensor (raw)</span><strong id="lightRaw">—</strong></div>
 </div><small id="sensorStatus"></small></section>
-<section class="card"><h2>Brightness</h2><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
+<section class="card"><h2>Display</h2><label class="check"><input id="displayPower" type="checkbox" checked onchange="setDisplayPower(this.checked)">Screen power</label><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
 <section class="card" id="otaCard"><h2>Firmware update</h2><p>Upload a new firmware binary. The clock restarts after a successful update.</p><a href="/update">Open firmware updater</a></section>
 <form class="card" id="settings" method="post" action="/api/settings"><h2>Settings</h2>
 <label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Signal strength is shown in dBm (higher is better).</small>
@@ -40,6 +40,15 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label class="check"><input name="periodicDate" type="checkbox" value="1" {{PERIODICDATE}}>Show the date periodically</label>
 <label for="dateDisplaySeconds">Date display duration X (seconds)</label><input id="dateDisplaySeconds" name="dateDisplaySeconds" type="number" min="1" max="60" value="{{DATEDURATION}}" required>
 <label for="dateIntervalSeconds">Date display interval Y (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>Show the date every Y seconds for X seconds. X cannot exceed Y.</small>
+<h2>MQTT / Home Assistant</h2>
+<label class="check"><input name="mqttEnabled" type="checkbox" value="1" {{MQTTENABLED}}>Enable MQTT</label>
+<label for="mqttHost">Broker host or IP</label><input id="mqttHost" name="mqttHost" maxlength="63" value="{{MQTTHOST}}" placeholder="192.168.1.10">
+<label for="mqttPort">Broker port</label><input id="mqttPort" name="mqttPort" type="number" min="1" max="65535" value="{{MQTTPORT}}" required>
+<label for="mqttUsername">MQTT username (optional)</label><input id="mqttUsername" name="mqttUsername" maxlength="64" value="{{MQTTUSERNAME}}" autocomplete="off">
+<label for="mqttPassword">MQTT password (optional)</label><input id="mqttPassword" name="mqttPassword" type="password" maxlength="64" value="{{MQTTPASSWORD}}" autocomplete="new-password">
+<label for="mqttBaseTopic">Base topic</label><input id="mqttBaseTopic" name="mqttBaseTopic" maxlength="48" value="{{MQTTTOPIC}}" required>
+<label for="mqttDiscoveryPrefix">Home Assistant discovery prefix</label><input id="mqttDiscoveryPrefix" name="mqttDiscoveryPrefix" maxlength="48" value="{{MQTTDISCOVERY}}" required>
+<label for="mqttTelemetrySeconds">Sensor publish interval (seconds)</label><input id="mqttTelemetrySeconds" name="mqttTelemetrySeconds" type="number" min="5" max="3600" value="{{MQTTINTERVAL}}" required><small>Home Assistant discovery is published automatically. MQTT uses an unencrypted connection.</small>
 <h2>Hardware override</h2>
 <label class="check"><input name="sensorOverride" id="sensorOverride" type="checkbox" value="1" {{SENSOROVERRIDE}} onchange="byId('sensorOptions').hidden=!this.checked"><strong>I have sensor(s) connected</strong></label>
 <small>Disables UP and DOWN. Leave unchecked for the unmodified board and normal buttons. SET remains available for the configuration portal.</small>
@@ -52,7 +61,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <input type="hidden" name="brightness" id="brightnessSetting" value="{{BRIGHTNESS}}">
 <div class="actions"><button type="submit">Save & restart</button><button type="button" class="secondary" onclick="restartClock()">Restart</button></div><div id="message" role="status"></div>
 </form>
-<p class="muted"><small>Configuration is stored on the device. The Wi-Fi password is not encrypted in flash.</small></p>
+<p class="muted"><small>Configuration is stored on the device. Wi-Fi and MQTT passwords are not encrypted in flash.</small></p>
 </main><script>
 function byId(id){return document.getElementById(id);}
 function apiRequest(method,url,body,callback){
@@ -67,8 +76,9 @@ xhr.ontimeout=function(){finish(false,0,'');};
 if(body!==null)xhr.setRequestHeader('Content-Type','application/x-www-form-urlencoded');
 xhr.send(body);
 }
-function refreshStatus(){apiRequest('GET','/api/status',null,function(ok,text){if(!ok)return;var s;try{s=JSON.parse(text);}catch(e){return;}byId('time').textContent=s.time;byId('wifi').textContent=s.wifi?('Connected · '+s.ssid):'Disconnected';byId('ip').textContent=s.ip||'—';byId('sync').textContent=s.lastSync;byId('ap').textContent=s.ap?(s.apName+' · '+s.apIp):'Off';byId('uptime').textContent=s.uptime;byId('resetReason').textContent=s.resetReason;var brightness=byId('brightness');if(document.activeElement!==brightness){brightness.value=s.brightness;byId('brightnessValue').textContent=s.brightness;}byId('brightnessSetting').value=s.brightness;brightness.disabled=s.autoBrightness;byId('sensorCard').hidden=!s.sensorsEnabled;byId('temperature').textContent=s.temperature===null?'—':s.temperature.toFixed(1)+' °C';byId('humidity').textContent=s.humidity===null?'—':s.humidity.toFixed(1)+' %';byId('pressure').textContent=s.pressure===null?'—':s.pressure.toFixed(1)+' hPa';byId('lightRaw').textContent=s.autoBrightness?s.lightRaw:'Disabled';byId('sensorStatus').textContent=s.thpEnabled?(s.thpAvailable?'BME280 connected':'BME280 not detected'):'THP sensor disabled';});}
+function refreshStatus(){apiRequest('GET','/api/status',null,function(ok,text){if(!ok)return;var s;try{s=JSON.parse(text);}catch(e){return;}byId('time').textContent=s.time;byId('wifi').textContent=s.wifi?('Connected · '+s.ssid):'Disconnected';byId('ip').textContent=s.ip||'—';byId('sync').textContent=s.lastSync;byId('ap').textContent=s.ap?(s.apName+' · '+s.apIp):'Off';byId('uptime').textContent=s.uptime;byId('resetReason').textContent=s.resetReason;var brightness=byId('brightness');if(document.activeElement!==brightness){brightness.value=s.brightness;byId('brightnessValue').textContent=s.brightness;}byId('displayPower').checked=s.power;byId('brightnessSetting').value=s.brightness;brightness.disabled=s.autoBrightness;byId('sensorCard').hidden=!s.sensorsEnabled;byId('temperature').textContent=s.temperature===null?'—':s.temperature.toFixed(1)+' °C';byId('humidity').textContent=s.humidity===null?'—':s.humidity.toFixed(1)+' %';byId('pressure').textContent=s.pressure===null?'—':s.pressure.toFixed(1)+' hPa';byId('lightRaw').textContent=s.autoBrightness?s.lightRaw:'Disabled';byId('sensorStatus').textContent=s.thpEnabled?(s.thpAvailable?'BME280 connected':'BME280 not detected'):'THP sensor disabled';});}
 function setBrightness(level){byId('brightnessSetting').value=level;apiRequest('POST','/api/brightness','level='+encodeURIComponent(level),function(){});}
+function setDisplayPower(enabled){apiRequest('POST','/api/display/power','enabled='+(enabled?'1':'0'),function(){});}
 function signalQuality(rssi){return rssi>=-50?'excellent':rssi>=-60?'good':rssi>=-70?'fair':'weak';}
 function scanWifi(){
 var button=byId('scanWifiButton'),select=byId('networks'),status=byId('scanStatus');
@@ -118,6 +128,7 @@ void WebPortal::begin(StatusProvider statusProvider) {
     server_.on("/api/status", HTTP_GET, [this]() { handleStatus(); });
     server_.on("/api/wifi/networks", HTTP_GET, [this]() { handleWifiNetworks(); });
     server_.on("/api/brightness", HTTP_POST, [this]() { handleBrightness(); });
+    server_.on("/api/display/power", HTTP_POST, [this]() { handlePower(); });
     server_.on("/api/settings", HTTP_POST, [this]() { handleSettings(); });
     server_.on("/api/restart", HTTP_POST, [this]() { handleRestart(); });
     server_.on("/generate_204", HTTP_GET, [this]() { handleCaptiveRedirect(); });
@@ -218,6 +229,14 @@ void WebPortal::handleRoot() {
     page.replace("{{SSID}}", htmlEscape(config.ssid));
     page.replace("{{PASSWORD}}", htmlEscape(config.password));
     page.replace("{{TIMEZONE}}", htmlEscape(config.timezone));
+    page.replace("{{MQTTHOST}}", htmlEscape(config.mqttHost));
+    page.replace("{{MQTTPORT}}", String(config.mqttPort));
+    page.replace("{{MQTTUSERNAME}}", htmlEscape(config.mqttUsername));
+    page.replace("{{MQTTPASSWORD}}", htmlEscape(config.mqttPassword));
+    page.replace("{{MQTTTOPIC}}", htmlEscape(config.mqttBaseTopic));
+    page.replace("{{MQTTDISCOVERY}}", htmlEscape(config.mqttDiscoveryPrefix));
+    page.replace("{{MQTTINTERVAL}}", String(config.mqttTelemetrySeconds));
+    page.replace("{{MQTTENABLED}}", config.mqttEnabled ? "checked" : "");
     page.replace("{{NTP1}}", htmlEscape(config.ntpServer1));
     page.replace("{{NTP2}}", htmlEscape(config.ntpServer2));
     page.replace("{{SYNC}}", String(config.syncIntervalMinutes));
@@ -280,10 +299,29 @@ void WebPortal::handleBrightness() {
     server_.send(saved ? 200 : 500, "application/json", saved ? "{\"ok\":true}" : "{\"ok\":false}");
 }
 
+void WebPortal::handlePower() {
+    if (!server_.hasArg("enabled")) {
+        server_.send(400, "application/json", "{\"ok\":false}");
+        return;
+    }
+    const bool enabled = server_.arg("enabled") == "1";
+    display_.setPower(enabled);
+    const bool saved = config_.saveDisplayPower(enabled);
+    server_.send(saved ? 200 : 500, "application/json", saved ? "{\"ok\":true}" : "{\"ok\":false}");
+}
+
 void WebPortal::handleSettings() {
     ClockConfig updated = config_.get();
     updated.ssid = server_.arg("ssid");
     updated.password = server_.arg("password");
+    updated.mqttEnabled = server_.arg("mqttEnabled") == "1";
+    updated.mqttHost = server_.arg("mqttHost");
+    updated.mqttPort = server_.arg("mqttPort").toInt();
+    updated.mqttUsername = server_.arg("mqttUsername");
+    updated.mqttPassword = server_.arg("mqttPassword");
+    updated.mqttBaseTopic = server_.arg("mqttBaseTopic");
+    updated.mqttDiscoveryPrefix = server_.arg("mqttDiscoveryPrefix");
+    updated.mqttTelemetrySeconds = server_.arg("mqttTelemetrySeconds").toInt();
     updated.ntpServer1 = server_.arg("ntp1");
     updated.ntpServer2 = server_.arg("ntp2");
     updated.timezone = server_.arg("timezone");

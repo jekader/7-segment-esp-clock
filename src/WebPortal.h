@@ -36,6 +36,7 @@ private:
     void handleStatus();
     void handleWifiNetworks();
     void handleBrightness();
+    void handlePower();
     void handleSettings();
     void handleRestart();
     void handleCaptiveRedirect();

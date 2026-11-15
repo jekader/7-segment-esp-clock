@@ -5,6 +5,14 @@
 struct ClockConfig {
     String ssid;
     String password;
+    bool mqttEnabled = false;
+    String mqttHost;
+    uint16_t mqttPort = 1883;
+    String mqttUsername;
+    String mqttPassword;
+    String mqttBaseTopic = "7segclock";
+    String mqttDiscoveryPrefix = "homeassistant";
+    uint32_t mqttTelemetrySeconds = 30;
     String ntpServer1 = "pool.ntp.org";
     String ntpServer2 = "time.nist.gov";
     String timezone = "UTC0";
@@ -14,6 +22,7 @@ struct ClockConfig {
     bool periodicDateEnabled = false;
     uint32_t dateDisplaySeconds = 3;
     uint32_t dateIntervalSeconds = 300;
+    bool displayPower = true;
     uint8_t brightness = 8;
     bool sensorOverride = false;
     bool autoBrightness = false;
@@ -28,6 +37,7 @@ public:
     const ClockConfig& get() const { return config_; }
     bool save(const ClockConfig& config);
     bool saveBrightness(uint8_t brightness);
+    bool saveDisplayPower(bool enabled);
 
 private:
     static constexpr const char* kPath = "/config.txt";

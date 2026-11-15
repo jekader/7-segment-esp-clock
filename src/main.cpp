@@ -1,6 +1,7 @@
 #include "Buttons.h"
 #include "Config.h"
 #include "Display.h"
+#include "MqttHomeAssistant.h"
 #include "RtcClock.h"
 #include "Sensors.h"
 #include "WebPortal.h"
@@ -22,6 +23,7 @@ RtcClock rtc;
 Buttons buttons;
 Sensors sensors;
 WebPortal portal(configStore, hardwareDisplay);
+MqttHomeAssistant mqtt(configStore, sensors, hardwareDisplay);
 
 volatile bool ntpSyncPending = false;
 uint32_t ntpUpdateDelayMs = 60UL * 60UL * 1000UL;
@@ -87,6 +89,7 @@ String statusJson() {
     json += "\"resetReason\":\"" + jsonEscape(ESP.getResetReason()) + "\",";
     json += "\"rtcValid\":" + String(rtcValid ? "true" : "false") + ",";
     json += "\"brightness\":" + String(hardwareDisplay.brightness()) + ",";
+    json += "\"power\":" + String(hardwareDisplay.powered() ? "true" : "false") + ",";
     json += "\"sensorsEnabled\":" + String(configStore.get().sensorOverride ? "true" : "false") + ",";
     json += "\"autoBrightness\":" + String(sensors.autoBrightness() ? "true" : "false") + ",";
     json += "\"lightRaw\":" + String(sensors.lightRaw()) + ",";
@@ -185,6 +188,7 @@ void setup() {
 
     if (!hardwareDisplay.begin()) Serial.println(F("display: TM1650 not responding"));
     hardwareDisplay.setBrightness(config.brightness);
+    hardwareDisplay.setPower(config.displayPower);
     hardwareDisplay.showText("7SEG");
 
     buttons.begin();
@@ -196,6 +200,7 @@ void setup() {
     portal.begin(statusJson);
     if (buttons.setIsDown()) portal.startAccessPoint();
     startWifi();
+    mqtt.begin();
 
     configTime(config.timezone.c_str(), config.ntpServer1.c_str(),
                config.ntpServer2.isEmpty() ? nullptr : config.ntpServer2.c_str());
@@ -211,14 +216,22 @@ void loop() {
     const uint32_t nowMs = millis();
     buttons.update();
     portal.handle();
+    mqtt.handle();
     display.update();
     sensors.update();
     updatePeriodicDate(nowMs);
 
-    if (buttons.setWasHeld()) portal.startAccessPoint();
+    if (buttons.setWasHeld()) {
+        mqtt.publishButton("set", "HOLD");
+        portal.startAccessPoint();
+    }
 
+    const bool setPressed = buttons.wasPressed(Buttons::Set);
     const bool datePressed = buttons.wasPressed(Buttons::Date);
     const bool brightnessPressed = buttons.wasPressed(Buttons::Brightness);
+    if (setPressed) mqtt.publishButton("set", "PRESS");
+    if (datePressed) mqtt.publishButton("date", "PRESS");
+    if (brightnessPressed) mqtt.publishButton("brightness", "PRESS");
     if (datePressed && !configStore.get().sensorOverride) showDate = !showDate;
 
     if (brightnessPressed && !configStore.get().sensorOverride) {

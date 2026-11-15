@@ -13,6 +13,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [jekader/dCLC](
 - Open captive portal for Wi-Fi setup; no internet-hosted web assets.
 - On-demand Wi-Fi network scanning with signal strength and one-click SSID selection.
 - Browser-based OTA firmware updates at `/update`.
+- Optional MQTT integration with Home Assistant discovery, environmental sensors, display power/brightness control, and button events. Disabled by default.
 - Automatic configuration AP after 30 seconds without Wi-Fi, or on demand by holding **SET** for three seconds.
 - Full printable seven-segment ASCII font and a scrolling, timed message interface for future integrations.
 - Optional hardware override for an LDR on A0 (automatic brightness) and a BME280 temperature/humidity/pressure sensor.
@@ -57,7 +58,7 @@ On first boot, or when Wi-Fi remains unavailable for 30 seconds, the clock start
 
 Holding **SET** for three seconds also enables the AP. The AP stops automatically whenever a station Wi-Fi connection is established; use the assigned station IP to access the portal afterward.
 
-The settings page changes take effect after a short automatic restart. Brightness changes apply and save immediately. Configuration is stored in LittleFS; the Wi-Fi password is **not encrypted** in flash or in the local configuration page.
+The settings page changes take effect after a short automatic restart. Brightness and display-power changes apply and save immediately. Configuration is stored in LittleFS; Wi-Fi and MQTT passwords are **not encrypted** in flash or in the local configuration page.
 
 ### Browser OTA updates
 
@@ -66,6 +67,22 @@ Open **http://CLOCK_IP/update**, select **Firmware**, and upload `.pio/build/303
 Only upload the filesystem image if you intentionally want to replace the configuration filesystem. The updater restarts the clock after a successful upload. Anyone who can reach the portal can update the firmware, so use it only on a trusted network. Keep USB serial access available for recovery.
 
 The firmware uses a 64 KB LittleFS layout to preserve enough contiguous space for OTA updates.
+
+### MQTT and Home Assistant
+
+Enable MQTT in the portal and configure the broker host, port, optional credentials, base topic, discovery prefix, and sensor interval. The default base topic is `7segclock`, discovery prefix is `homeassistant`, and sensor interval is 30 seconds. Changing MQTT settings restarts the clock.
+
+The clock connects only while station Wi-Fi is available, reconnects automatically, and publishes retained discovery and state data. Each clock is identified by its MAC suffix. With device ID `7seg_a1b2c3` and the default base topic:
+
+- Availability: `7segclock/7seg_a1b2c3/status` (`online`/`offline`, with offline configured as the MQTT last will).
+- Sensor telemetry: `7segclock/7seg_a1b2c3/tele/SENSOR`.
+- Display power state: `7segclock/7seg_a1b2c3/display/power`; send `ON` or `OFF` to the same topic plus `/set`.
+- Brightness state: `7segclock/7seg_a1b2c3/display/brightness`; send an integer from 1 to 8 to the same topic plus `/set`.
+- Button events: `7segclock/7seg_a1b2c3/button/set`, `.../button/date`, and `.../button/brightness`. Every button publishes non-retained `PRESS` events; SET also publishes `HOLD` after three seconds.
+
+Home Assistant discovers a display switch, brightness number, button-press device-automation triggers, and whichever BME280 temperature, humidity, pressure, or raw-light sensors are enabled and available. MQTT display state also follows local web and button changes. Automatic LDR brightness takes priority over manual brightness commands. Display power and manual brightness changes are saved. Button events are reported even when the hardware override disables their normal Date/Brightness behavior.
+
+MQTT uses a plain TCP connection without TLS; use a trusted local broker and network. Disabling a sensor clears its retained Home Assistant discovery entry on the next broker connection.
 
 ### Optional sensor hardware override
 
@@ -88,18 +105,19 @@ The POSIX timezone field accepts values such as:
 - **Date (press):** toggle between time and day/month.
 - **Brightness (press):** cycle through levels 1–8 and save the selected level.
 
-## Module layout and future MQTT/messages
+## Module layout and messages
 
 - `Config`: validated, persistent application settings.
 - `RtcClock`: failure-tolerant DS1302 adapter.
 - `Tm1650Display`: pin, segment-remapping, font, and brightness hardware adapter.
 - `DisplayController`: owns time/date versus scrolling-message content policy.
 - `WebPortal`: web UI, captive DNS, AP lifecycle, and settings writes.
+- `MqttHomeAssistant`: broker lifecycle, Home Assistant discovery, sensor/button publishing, and display commands.
 - `Sensors`: filtered LDR automatic brightness and BME280 readings.
 - `Buttons`: debounced button events and SET hold detection.
 - `main.cpp`: Wi-Fi/NTP/RTC orchestration only.
 
-A future MQTT adapter can display ASCII without changing the display driver or clock rendering logic:
+MQTT text-message support is separate from Home Assistant integration and remains a possible future extension:
 
 ```cpp
 display.showMessage(message, 15000); // scroll for 15 s, then restore clock
@@ -107,7 +125,7 @@ display.showMessage(message, 0);     // persistent until clearMessage()
 display.clearMessage();
 ```
 
-The adapter should remain non-blocking and call its own `loop()` from the main loop. MQTT is deliberately not enabled yet, so the current firmware has no broker credentials or network dependency beyond NTP.
+The adapter should remain non-blocking and call its own handler from the main loop.
 
 ## Hardware research
 
