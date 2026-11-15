@@ -48,7 +48,7 @@ public:
 
     void showTime(const struct tm& value, bool use12Hour, bool colonVisible);
     void showDate(const struct tm& value);
-    void showMessage(const String& text, uint32_t durationMs = 10000);
+    void showMessage(const String& text, uint32_t durationMs = 10000, bool combineDots = false);
     void clearMessage();
     bool messageActive() const { return messageActive_; }
     void update();
@@ -56,6 +56,8 @@ public:
 private:
     Tm1650Display& display_;
     String scrollText_;
+    String scrollDots_;
+    bool combineDots_ = false;
     size_t scrollOffset_ = 0;
     uint32_t nextScrollAt_ = 0;
     uint32_t messageExpiresAt_ = 0;

@@ -24,10 +24,10 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <div><span>Temperature</span><strong id="temperature">—</strong></div><div><span>Humidity</span><strong id="humidity">—</strong></div>
 <div><span>Pressure</span><strong id="pressure">—</strong></div><div><span>Light sensor (raw)</span><strong id="lightRaw">—</strong></div>
 </div><small id="sensorStatus"></small></section>
-<section class="card"><h2>Display</h2><label class="check"><input id="displayPower" type="checkbox" checked onchange="setDisplayPower(this.checked)">Screen power</label><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
+<section class="card"><h2>Display</h2><label class="check"><input id="displayPower" type="checkbox" checked onchange="setDisplayPower(this.checked)">Screen on</label><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
 <section class="card" id="otaCard"><h2>Firmware update</h2><p>Upload a new firmware binary. The clock restarts after a successful update.</p><a href="/update">Open firmware updater</a></section>
 <form class="card" id="settings" method="post" action="/api/settings"><h2>Settings</h2>
-<label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Signal strength is shown in dBm (higher is better).</small>
+<label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Filled bars indicate signal strength.</small>
 <label for="ssid">Wi-Fi network</label><input id="ssid" name="ssid" maxlength="32" value="{{SSID}}" autocomplete="off" required>
 <label for="password">Wi-Fi password</label><input id="password" name="password" type="password" maxlength="64" value="{{PASSWORD}}" autocomplete="new-password"><small>Leave empty for an open network.</small>
 <label class="check"><input id="showPassword" type="checkbox">Show Wi-Fi password</label>
@@ -36,10 +36,10 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="ntp2">Secondary NTP server</label><input id="ntp2" name="ntp2" maxlength="63" value="{{NTP2}}">
 <label for="sync">NTP sync interval (minutes)</label><input id="sync" name="sync" type="number" min="5" max="1440" value="{{SYNC}}" required>
 <label class="check"><input name="use12Hour" type="checkbox" value="1" {{HOUR12}}>Use 12-hour format (fourth dot indicates PM)</label>
-<label class="check"><input name="blinkColon" type="checkbox" value="1" {{COLONBLINK}}>Flash the time colon (unchecked keeps it solid)</label>
+<label class="check"><input name="blinkColon" type="checkbox" value="1" {{COLONBLINK}}>Flash the time colon</label>
 <label class="check"><input name="periodicDate" type="checkbox" value="1" {{PERIODICDATE}}>Show the date periodically</label>
-<label for="dateDisplaySeconds">Date display duration X (seconds)</label><input id="dateDisplaySeconds" name="dateDisplaySeconds" type="number" min="1" max="60" value="{{DATEDURATION}}" required>
-<label for="dateIntervalSeconds">Date display interval Y (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>Show the date every Y seconds for X seconds. X cannot exceed Y.</small>
+<label for="dateDisplaySeconds">Date display duration (seconds)</label><input id="dateDisplaySeconds" name="dateDisplaySeconds" type="number" min="1" max="60" value="{{DATEDURATION}}" required>
+<label for="dateIntervalSeconds">Date display interval (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>The display returns to the time after each duration. Duration cannot exceed the interval.</small>
 <h2>MQTT / Home Assistant</h2>
 <label class="check"><input name="mqttEnabled" type="checkbox" value="1" {{MQTTENABLED}}>Enable MQTT</label>
 <label for="mqttHost">Broker host or IP</label><input id="mqttHost" name="mqttHost" maxlength="63" value="{{MQTTHOST}}" placeholder="192.168.1.10">
@@ -51,7 +51,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="mqttTelemetrySeconds">Sensor publish interval (seconds)</label><input id="mqttTelemetrySeconds" name="mqttTelemetrySeconds" type="number" min="5" max="3600" value="{{MQTTINTERVAL}}" required><small>Home Assistant discovery is published automatically. MQTT uses an unencrypted connection.</small>
 <h2>Hardware override</h2>
 <label class="check"><input name="sensorOverride" id="sensorOverride" type="checkbox" value="1" {{SENSOROVERRIDE}} onchange="byId('sensorOptions').hidden=!this.checked"><strong>I have sensor(s) connected</strong></label>
-<small>Disables UP and DOWN. Leave unchecked for the unmodified board and normal buttons. SET remains available for the configuration portal.</small>
+<small>Disables UP and DOWN buttons</small>
 <div id="sensorOptions" {{SENSORHIDDEN}}>
 <label class="check"><input name="autoBrightness" type="checkbox" value="1" {{AUTOBRIGHTNESS}}>LDR on TOUT/A0 — automatic brightness</label>
 <label for="lightDark">LDR dark calibration (0–1023)</label><input id="lightDark" name="lightDark" type="number" min="0" max="1022" value="{{LIGHTDARK}}">
@@ -79,7 +79,7 @@ xhr.send(body);
 function refreshStatus(){apiRequest('GET','/api/status',null,function(ok,text){if(!ok)return;var s;try{s=JSON.parse(text);}catch(e){return;}byId('time').textContent=s.time;byId('wifi').textContent=s.wifi?('Connected · '+s.ssid):'Disconnected';byId('ip').textContent=s.ip||'—';byId('sync').textContent=s.lastSync;byId('ap').textContent=s.ap?(s.apName+' · '+s.apIp):'Off';byId('uptime').textContent=s.uptime;byId('resetReason').textContent=s.resetReason;var brightness=byId('brightness');if(document.activeElement!==brightness){brightness.value=s.brightness;byId('brightnessValue').textContent=s.brightness;}byId('displayPower').checked=s.power;byId('brightnessSetting').value=s.brightness;brightness.disabled=s.autoBrightness;byId('sensorCard').hidden=!s.sensorsEnabled;byId('temperature').textContent=s.temperature===null?'—':s.temperature.toFixed(1)+' °C';byId('humidity').textContent=s.humidity===null?'—':s.humidity.toFixed(1)+' %';byId('pressure').textContent=s.pressure===null?'—':s.pressure.toFixed(1)+' hPa';byId('lightRaw').textContent=s.autoBrightness?s.lightRaw:'Disabled';byId('sensorStatus').textContent=s.thpEnabled?(s.thpAvailable?'BME280 connected':'BME280 not detected'):'THP sensor disabled';});}
 function setBrightness(level){byId('brightnessSetting').value=level;apiRequest('POST','/api/brightness','level='+encodeURIComponent(level),function(){});}
 function setDisplayPower(enabled){apiRequest('POST','/api/display/power','enabled='+(enabled?'1':'0'),function(){});}
-function signalQuality(rssi){return rssi>=-50?'excellent':rssi>=-60?'good':rssi>=-70?'fair':'weak';}
+function signalBars(rssi){return rssi>=-55?'[▂▄▆█]':rssi>=-65?'[▂▄▆_]':rssi>=-75?'[▂▄__]':'[▂___]';}
 function scanWifi(){
 var button=byId('scanWifiButton'),select=byId('networks'),status=byId('scanStatus');
 button.disabled=true;select.disabled=true;status.textContent='Scanning for networks…';
@@ -99,7 +99,7 @@ status.textContent='Rendering '+networks.length+' network'+(networks.length===1?
 select.options.length=0;
 var placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=networks.length?'Select a network':'No networks found';select.add(placeholder);
 for(i=0;i<networks.length;i++){
-network=networks[i];var option=document.createElement('option');option.value=network.ssid;option.textContent=network.ssid+' · '+network.rssi+' dBm · '+signalQuality(network.rssi);select.add(option);
+network=networks[i];var option=document.createElement('option');option.value=network.ssid;option.textContent=signalBars(network.rssi)+' '+network.ssid;select.add(option);
 }
 status.textContent=networks.length?networks.length+' network'+(networks.length===1?'':'s')+' found. Select one to fill in its name.':'No networks found. Try again or enter the name manually.';
 }catch(e){status.textContent='Scan display error: '+(e.message||e);}

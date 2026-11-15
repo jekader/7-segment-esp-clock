@@ -171,13 +171,26 @@ void DisplayController::showDate(const struct tm& value) {
     if (!messageActive_) display_.showDate(value);
 }
 
-void DisplayController::showMessage(const String& text, uint32_t durationMs) {
+void DisplayController::showMessage(const String& text, uint32_t durationMs, bool combineDots) {
     if (text.isEmpty()) {
         clearMessage();
         return;
     }
 
-    scrollText_ = "    " + text + "    ";
+    scrollText_ = "";
+    scrollDots_ = "";
+    combineDots_ = combineDots;
+    const String message = "    " + text + "    ";
+    scrollText_.reserve(message.length());
+    scrollDots_.reserve(message.length());
+    for (size_t i = 0; i < message.length(); ++i) {
+        if (combineDots && message[i] == '.' && scrollText_.length() != 0) {
+            scrollDots_[scrollText_.length() - 1] = '1';
+        } else {
+            scrollText_ += message[i];
+            scrollDots_ += combineDots ? '0' : '\0';
+        }
+    }
     scrollOffset_ = 0;
     messageActive_ = true;
     nextScrollAt_ = millis() + 300;
@@ -188,6 +201,8 @@ void DisplayController::showMessage(const String& text, uint32_t durationMs) {
 void DisplayController::clearMessage() {
     messageActive_ = false;
     scrollText_ = "";
+    scrollDots_ = "";
+    combineDots_ = false;
     messageExpiresAt_ = 0;
     redrawClock();
 }
@@ -209,7 +224,14 @@ void DisplayController::update() {
 
     if (static_cast<int32_t>(now - nextScrollAt_) < 0) return;
     nextScrollAt_ = now + 300;
-    display_.showText(scrollText_.substring(scrollOffset_, scrollOffset_ + 4));
+    uint8_t dots = DisplayDot::None;
+    if (combineDots_) {
+        for (uint8_t i = 0; i < 4 && scrollOffset_ + i < scrollDots_.length(); ++i) {
+            // The midpoint DP drives the clock colon; suppress message separators there.
+            if (i != 1 && scrollDots_[scrollOffset_ + i] == '1') dots |= 1 << i;
+        }
+    }
+    display_.showText(scrollText_.substring(scrollOffset_, scrollOffset_ + 4), dots);
     ++scrollOffset_;
     if (scrollOffset_ + 4 > scrollText_.length()) scrollOffset_ = 0;
 }

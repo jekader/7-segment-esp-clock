@@ -251,7 +251,7 @@ void loop() {
             const String ip = WiFi.localIP().toString();
             Serial.printf("wifi: connected, IP %s\n", ip.c_str());
             if (showIpAfterBoot) {
-                display.showMessage("IP " + ip, 12000);
+                display.showMessage("IP " + ip, 12000, true);
                 showIpAfterBoot = false;
             }
             disconnectedSince = 0;
