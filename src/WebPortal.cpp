@@ -42,7 +42,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="dateIntervalSeconds">Date display interval (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>The display returns to the time after each duration. Duration cannot exceed the interval.</small>
 <h2>MQTT / Home Assistant</h2>
 <label class="check"><input name="mqttEnabled" type="checkbox" value="1" {{MQTTENABLED}}>Enable MQTT</label>
-<label for="mqttHost">Broker host or IP</label><input id="mqttHost" name="mqttHost" maxlength="63" value="{{MQTTHOST}}" placeholder="192.168.1.10">
+<label for="mqttHost">Broker host or IP</label><input id="mqttHost" name="mqttHost" maxlength="63" value="{{MQTTHOST}}" placeholder="mqtt.local">
 <label for="mqttPort">Broker port</label><input id="mqttPort" name="mqttPort" type="number" min="1" max="65535" value="{{MQTTPORT}}" required>
 <label for="mqttUsername">MQTT username (optional)</label><input id="mqttUsername" name="mqttUsername" maxlength="64" value="{{MQTTUSERNAME}}" autocomplete="off">
 <label for="mqttPassword">MQTT password (optional)</label><input id="mqttPassword" name="mqttPassword" type="password" maxlength="64" value="{{MQTTPASSWORD}}" autocomplete="new-password">

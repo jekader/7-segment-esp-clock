@@ -1,6 +1,6 @@
 # 7 Segment ESP Clock
 
-A PlatformIO firmware for the **303WIFILC01** clock, ported from [jekader/dCLC](https://github.com/jekader/dCLC). It retains the original ESP8266, DS1302 RTC, TM1650 four-digit display, and buttons while replacing the application structure with small, non-blocking modules.
+A PlatformIO firmware for the **303WIFILC01** clock, ported from [maarten-pennings/303WIFILC01](https://github.com/maarten-pennings/303WIFILC01). It retains the original ESP8266, DS1302 RTC, TM1650 four-digit display, and buttons while replacing the application structure with small, non-blocking modules.
 
 ## Features
 
@@ -131,6 +131,14 @@ The adapter should remain non-blocking and call its own handler from the main lo
 
 See [`docs/clock-pinouts.md`](docs/clock-pinouts.md) for the complete P1/GPIO map and evaluated sensor-expansion options. The short version is that GPIO3/RX is the easiest one-wire sensor connection, while GPIO4 at UP/S2 is cleaner if that button can be repurposed.
 
+## CI releases
+
+Pull requests receive a PlatformIO build check and workflow artifacts. Version tags matching `v*.*.*` (for example, `v7.1.0`) also create a GitHub release containing the OTA firmware BIN, matching ELF, and SHA-256 checksums.
+
 ## Attribution
 
-Hardware definitions, display segment mapping, font, and DS1302 setup were ported from `jekader/dCLC`, which credits Maarten Pennings and Utyff and their [303WIFILC01 work](https://github.com/maarten-pennings/303WIFILC01).
+Hardware definitions, display segment mapping, font, and DS1302 setup were ported from Maarten Pennings and Utyff's [303WIFILC01 project](https://github.com/maarten-pennings/303WIFILC01).
+
+## License
+
+This project is released into the public domain under [The Unlicense](LICENSE).
