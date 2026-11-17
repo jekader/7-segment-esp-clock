@@ -16,7 +16,39 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [maarten-pennin
 - Optional MQTT integration with Home Assistant discovery, environmental sensors, display power/brightness control, and button events. Disabled by default.
 - Automatic configuration AP after 30 seconds without Wi-Fi, or on demand by holding **SET** for three seconds.
 - Full printable seven-segment ASCII font and a scrolling, timed message interface for future integrations.
-- Optional hardware override for an LDR on A0 (automatic brightness) and a BME280 temperature/humidity/pressure sensor.
+- Optional BME280 environmental monitoring and LDR automatic brightness using repurposed button connections.
+
+## Installation
+
+Prebuilt images are available on the [releases page](https://github.com/jekader/7-segment-esp-clock/releases), so installing the build toolchain is optional.
+
+| Release file | Purpose |
+| --- | --- |
+| `7-segment-esp-clock-firmware.bin` | Flashable ESP8266 firmware. Upload this file through an existing clock's `/update` page, or write it at address `0x0` with `esptool`. |
+| `7-segment-esp-clock-firmware.elf` | Matching linked image with debugging symbols. Use it for diagnostics, address-to-source lookup, and emulation; do not upload it through the OTA page. |
+| `SHA256SUMS` | SHA-256 checksums for the BIN and ELF files. |
+
+To verify both downloads on Linux (or another system with GNU coreutils), place all three files in the same directory and run:
+
+```sh
+sha256sum --check SHA256SUMS
+```
+
+For a clock already running firmware with browser OTA support, open **http://CLOCK_IP/update**, select **Firmware**, and upload `7-segment-esp-clock-firmware.bin`. The clock restarts after a successful update.
+
+For a first installation over USB serial, put the clock into its ESP8266 flashing bootloader: disconnect power, hold **SET**, reconnect power, and release **SET** after the status LED blinks once. Then run (adjusting the port as needed):
+
+```sh
+esptool --port /dev/ttyUSB0 write-flash 0x0 7-segment-esp-clock-firmware.bin
+```
+
+Before replacing original firmware, consider making a backup:
+
+```sh
+esptool --port /dev/ttyUSB0 read-flash 0 0x100000 original-firmware.bin
+```
+
+Flashing this hardware can damage or brick the clock; proceed at your own risk and keep USB serial access available for recovery.
 
 ## Hardware
 
@@ -28,29 +60,11 @@ This firmware targets the unmodified 303WIFILC01:
 | RTC | DS1302: CLK GPIO16, IO GPIO14, CE GPIO5 |
 | Display | TM1650 over I²C: SDA GPIO13, SCL GPIO12 |
 | SET button | GPIO0, active low |
-| Date button | GPIO4, active low |
-| Brightness button | GPIO15, active high |
+| Date/UP button | GPIO4, active low |
+| Brightness/DOWN button | GPIO15, active high |
 | Status LED | GPIO2, active low |
 | Optional BME280 | SDA GPIO4 (UP), SCL GPIO3 (P1.RX), 3.3 V |
 | Optional LDR | TOUT/A0 (ESP8266EX pin 6), 0–1.0 V maximum |
-
-## Build and upload
-
-Install [PlatformIO](https://platformio.org/install), then:
-
-```sh
-pio run
-pio run --target upload
-pio device monitor
-```
-
-Before replacing original firmware, consider backing up the flash (adjust the serial port):
-
-```sh
-esptool -p /dev/ttyUSB0 read_flash 0 0x100000 original-firmware.bin
-```
-
-To enter the ESP8266 flashing bootloader, disconnect power, hold **SET**, reconnect power, and release **SET** after the status LED blinks once. Flashing this hardware can damage or brick the clock; proceed at your own risk.
 
 ## Configuration
 
@@ -62,9 +76,9 @@ The settings page changes take effect after a short automatic restart. Brightnes
 
 ### Browser OTA updates
 
-Open **http://CLOCK_IP/update**, select **Firmware**, and upload `.pio/build/303WIFILC01/firmware.bin`. No password is required.
+Open **http://CLOCK_IP/update**, select **Firmware**, and upload the prebuilt release BIN or `.pio/build/303WIFILC01/firmware.bin` from a local build. No password is required.
 
-Only upload the filesystem image if you intentionally want to replace the configuration filesystem. The updater restarts the clock after a successful upload. Anyone who can reach the portal can update the firmware, so use it only on a trusted network. Keep USB serial access available for recovery.
+Only upload the filesystem image if you intentionally want to replace the configuration filesystem. Anyone who can reach the portal can update the firmware, so use it only on a trusted network.
 
 The firmware uses a 64 KB LittleFS layout to preserve enough contiguous space for OTA updates.
 
@@ -84,26 +98,48 @@ Home Assistant discovers a display switch, brightness number, button-press devic
 
 MQTT uses a plain TCP connection without TLS; use a trusted local broker and network. Disabling a sensor clears its retained Home Assistant discovery entry on the next broker connection.
 
-### Optional sensor hardware override
+### Connecting sensors: reusing controls for useful I/O
 
-The unmodified board is the default: UP toggles the date and DOWN changes brightness. After modifying the hardware, enable **“I have sensor(s) connected”** in the UI and select the installed sensors. This disables UP and DOWN while preserving SET for portal access.
+The 303WIFILC01 has no spare GPIO pins on its programming header. However, its UP and DOWN buttons have limited everyday value once the clock can be configured and controlled through the web portal and Home Assistant. Repurposing their connections gives the clock useful environmental inputs without adding another controller. SET remains available for setup and recovery.
 
-- **LDR:** connect the bounded 0–1.0 V divider documented in `docs/clock-pinouts.md` to TOUT/A0. Automatic brightness uses filtered readings and the UI's dark/bright calibration values. Automatic changes do not rewrite flash.
-- **BME280:** desolder UP and connect SDA to GPIO4 at its pad. Connect SCL to GPIO3 on P1.RX, power the sensor at 3.3 V, and provide external I²C pull-ups. GPIO3/RX is used by serial flashing, so disconnect SCL if it interferes with flashing; TX logging remains available. GPIO15 was deliberately not selected because its 1 kΩ pull-down makes it a poor I²C line.
+Enable **“I have sensor(s) connected”** in the portal and select the installed hardware. This disables the normal UP and DOWN button actions; corresponding MQTT button events are still reported. Supported configurations are:
 
-Temperature, humidity, pressure, light level, and BME280 detection status appear in the web UI.
+- **BME280:** SDA on the UP/GPIO4 pad, SCL on P1.RX/GPIO3, external I²C pull-ups, and 3.3 V power.
+- **LDR automatic brightness:** a bounded divider connected directly to the ESP8266's TOUT/A0 input, configurable dark/bright calibration, and a **0–1.0 V maximum input**.
+
+See **[Sensor connections](docs/sensor-connections.md)** for wiring diagrams, installation steps, precautions, and calibration. More electrical background is in [Clock pinouts and sensor research](docs/clock-pinouts.md).
+
+### Timezone and DST
 
 The POSIX timezone field accepts values such as:
 
-- `UTC0`
-- `CET-1CEST,M3.5.0,M10.5.0/3` (Central Europe)
-- `EST5EDT,M3.2.0,M11.1.0` (US Eastern)
+- `UTC0` (UTC with no DST)
+- `CET-1CEST,M3.5.0,M10.5.0/3` (Central Europe with automatic DST)
+- `EST5EDT,M3.2.0,M11.1.0` (US Eastern with automatic DST)
+
+Complete daylight-saving rules switch automatically; fixed-offset settings do not switch.
 
 ### Buttons
 
 - **SET (hold 3 s):** open the configuration AP until station Wi-Fi connects.
-- **Date (press):** toggle between time and day/month.
-- **Brightness (press):** cycle through levels 1–8 and save the selected level.
+- **UP/date (press):** toggle between time and day/month when the sensor override is disabled.
+- **DOWN/brightness (press):** cycle through levels 1–8 and save the selected level when automatic brightness is disabled.
+
+## Building from source
+
+Install [PlatformIO](https://platformio.org/install), clone the repository, and run:
+
+```sh
+pio run
+pio run --target upload
+pio device monitor
+```
+
+The build writes `.pio/build/303WIFILC01/firmware.bin`, which can be uploaded through the browser OTA page.
+
+### CI releases
+
+Pull requests receive a PlatformIO build check and downloadable workflow artifacts. Version tags matching `v*.*.*` (for example, `v7.1.0`) also create a GitHub release containing the OTA BIN, matching ELF, and SHA-256 checksums. These are the files linked from [Installation](#installation).
 
 ## Module layout and messages
 
@@ -127,13 +163,9 @@ display.clearMessage();
 
 The adapter should remain non-blocking and call its own handler from the main loop.
 
-## Hardware research
+## Development
 
-See [`docs/clock-pinouts.md`](docs/clock-pinouts.md) for the complete P1/GPIO map and evaluated sensor-expansion options. The short version is that GPIO3/RX is the easiest one-wire sensor connection, while GPIO4 at UP/S2 is cleaner if that button can be repurposed.
-
-## CI releases
-
-Pull requests receive a PlatformIO build check and workflow artifacts. Version tags matching `v*.*.*` (for example, `v7.1.0`) also create a GitHub release containing the OTA firmware BIN, matching ELF, and SHA-256 checksums.
+This code was built using **Kimi K3.1 Pro**.
 
 ## Attribution
 
