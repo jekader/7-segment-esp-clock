@@ -1,6 +1,7 @@
 #include "Buttons.h"
 #include "Config.h"
 #include "Display.h"
+#include "Version.h"
 #include "MqttHomeAssistant.h"
 #include "RtcClock.h"
 #include "Sensors.h"

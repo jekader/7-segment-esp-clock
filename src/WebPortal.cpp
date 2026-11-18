@@ -1,17 +1,22 @@
 #include "WebPortal.h"
+#include "Version.h"
 
 #include <ESP8266WiFi.h>
+#include <FS.h>
+#include <StreamString.h>
+#include <Updater.h>
+#include <flash_hal.h>
 
 namespace {
+
+const char kPageStyle[] PROGMEM = R"CSS(:root{color-scheme:dark;--bg:#101418;--card:#1a2229;--text:#edf4f7;--muted:#9aabb5;--accent:#55d6a7;--line:#30404a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:680px;margin:auto;padding:24px 16px 48px}h1{font-size:1.7rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 18px}.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:18px}.time{font-size:2.8rem;font-weight:650;letter-spacing:.06em;font-variant-numeric:tabular-nums}.status{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.status span{color:var(--muted)}.status strong{display:block;overflow-wrap:anywhere}label{display:block;margin:16px 0 6px;font-weight:600}input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#10171c;color:var(--text);font:inherit}input[type=checkbox]{width:auto;margin-right:8px}.check{font-weight:500}.row{display:flex;align-items:center;gap:14px}.row input{flex:1}.level{font-size:1.4rem;min-width:2ch;text-align:center;color:var(--accent)}button{border:0;border-radius:9px;padding:11px 18px;background:var(--accent);color:#082019;font:600 16px system-ui;cursor:pointer;margin-top:20px}button.secondary{background:#34444e;color:var(--text)}.actions{display:flex;gap:10px;flex-wrap:wrap}small{display:block;color:var(--muted);margin-top:5px}#message{min-height:24px;margin-top:12px;color:var(--accent)}a{color:var(--accent)}.networkRow{display:flex;align-items:stretch;gap:10px}.networkRow select{flex:1;min-width:0}.networkRow button{margin:0;white-space:nowrap}button:disabled{cursor:wait;opacity:.65}@media(max-width:420px){.status{grid-template-columns:1fr}.time{font-size:2.3rem}.networkRow{flex-direction:column}})CSS";
 
 const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>7 Segment Clock</title>
-<style>
-:root{color-scheme:dark;--bg:#101418;--card:#1a2229;--text:#edf4f7;--muted:#9aabb5;--accent:#55d6a7;--line:#30404a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:680px;margin:auto;padding:24px 16px 48px}h1{font-size:1.7rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 18px}.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:18px}.time{font-size:2.8rem;font-weight:650;letter-spacing:.06em;font-variant-numeric:tabular-nums}.status{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.status span{color:var(--muted)}.status strong{display:block;overflow-wrap:anywhere}label{display:block;margin:16px 0 6px;font-weight:600}input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#10171c;color:var(--text);font:inherit}input[type=checkbox]{width:auto;margin-right:8px}.check{font-weight:500}.row{display:flex;align-items:center;gap:14px}.row input{flex:1}.level{font-size:1.4rem;min-width:2ch;text-align:center;color:var(--accent)}button{border:0;border-radius:9px;padding:11px 18px;background:var(--accent);color:#082019;font:600 16px system-ui;cursor:pointer;margin-top:20px}button.secondary{background:#34444e;color:var(--text)}.actions{display:flex;gap:10px;flex-wrap:wrap}small{display:block;color:var(--muted);margin-top:5px}#message{min-height:24px;margin-top:12px;color:var(--accent)}a{color:var(--accent)}.networkRow{display:flex;align-items:stretch;gap:10px}.networkRow select{flex:1;min-width:0}.networkRow button{margin:0;white-space:nowrap}button:disabled{cursor:wait;opacity:.65}@media(max-width:420px){.status{grid-template-columns:1fr}.time{font-size:2.3rem}.networkRow{flex-direction:column}}
-</style>
+<style>{{STYLES}}</style>
 </head>
 <body><main><noscript><p class="card">JavaScript is disabled. Open http://192.168.4.1/ in your full browser to configure the clock.</p></noscript>
 <header><h1>7 Segment Clock</h1><div class="muted">303WIFILC01 · firmware {{VERSION}}</div></header>
@@ -25,7 +30,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <div><span>Pressure</span><strong id="pressure">—</strong></div><div><span>Light sensor (raw)</span><strong id="lightRaw">—</strong></div>
 </div><small id="sensorStatus"></small></section>
 <section class="card"><h2>Display</h2><label class="check"><input id="displayPower" type="checkbox" checked onchange="setDisplayPower(this.checked)">Screen on</label><div class="row"><input id="brightness" type="range" min="1" max="8" step="1" value="{{BRIGHTNESS}}" oninput="byId('brightnessValue').textContent=this.value" onchange="setBrightness(this.value)"><output class="level" id="brightnessValue">{{BRIGHTNESS}}</output></div></section>
-<section class="card" id="otaCard"><h2>Firmware update</h2><p>Upload a new firmware binary. The clock restarts after a successful update.</p><a href="/update">Open firmware updater</a></section>
+<section class="card" id="otaCard"><h2>Firmware update</h2><p>Installed firmware: <strong>{{VERSION}}</strong></p><p>Upload a firmware BIN and the clock restarts after a successful update.</p><div class="actions"><a href="/update">Open firmware updater</a><button type="button" class="secondary" id="checkRelease">Check latest release</button><a id="releasePage" href="https://github.com/jekader/7-segment-esp-clock/releases/latest" target="_blank" rel="noopener">Releases page</a></div><p id="releaseStatus" role="status"></p><div id="releaseAsset" hidden><strong id="latestVersion"></strong><br><a id="downloadRelease" href="#" target="_blank" rel="noopener">Download OTA firmware.bin</a><small>Download the BIN, then choose it in the firmware updater.</small></div></section>
 <form class="card" id="settings" method="post" action="/api/settings"><h2>Settings</h2>
 <label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Filled bars indicate signal strength.</small>
 <label for="ssid">Wi-Fi network</label><input id="ssid" name="ssid" maxlength="32" value="{{SSID}}" autocomplete="off" required>
@@ -79,6 +84,23 @@ xhr.send(body);
 function refreshStatus(){apiRequest('GET','/api/status',null,function(ok,text){if(!ok)return;var s;try{s=JSON.parse(text);}catch(e){return;}byId('time').textContent=s.time;byId('wifi').textContent=s.wifi?('Connected · '+s.ssid):'Disconnected';byId('ip').textContent=s.ip||'—';byId('sync').textContent=s.lastSync;byId('ap').textContent=s.ap?(s.apName+' · '+s.apIp):'Off';byId('uptime').textContent=s.uptime;byId('resetReason').textContent=s.resetReason;var brightness=byId('brightness');if(document.activeElement!==brightness){brightness.value=s.brightness;byId('brightnessValue').textContent=s.brightness;}byId('displayPower').checked=s.power;byId('brightnessSetting').value=s.brightness;brightness.disabled=s.autoBrightness;byId('sensorCard').hidden=!s.sensorsEnabled;byId('temperature').textContent=s.temperature===null?'—':s.temperature.toFixed(1)+' °C';byId('humidity').textContent=s.humidity===null?'—':s.humidity.toFixed(1)+' %';byId('pressure').textContent=s.pressure===null?'—':s.pressure.toFixed(1)+' hPa';byId('lightRaw').textContent=s.autoBrightness?s.lightRaw:'Disabled';byId('sensorStatus').textContent=s.thpEnabled?(s.thpAvailable?'BME280 connected':'BME280 not detected'):'THP sensor disabled';});}
 function setBrightness(level){byId('brightnessSetting').value=level;apiRequest('POST','/api/brightness','level='+encodeURIComponent(level),function(){});}
 function setDisplayPower(enabled){apiRequest('POST','/api/display/power','enabled='+(enabled?'1':'0'),function(){});}
+function checkLatestRelease(){
+var button=byId('checkRelease'),status=byId('releaseStatus'),assetSection=byId('releaseAsset');
+button.disabled=true;status.textContent='Checking GitHub releases…';assetSection.hidden=true;
+apiRequest('GET','https://api.github.com/repos/jekader/7-segment-esp-clock/releases/latest',null,function(ok,text,httpStatus){
+button.disabled=false;
+if(!ok){status.textContent=httpStatus?'GitHub request failed (HTTP '+httpStatus+'). Use the releases page instead.':'Could not reach GitHub. Check Internet access or use the releases page.';return;}
+try{
+var release=JSON.parse(text),asset=null;
+if(!release.tag_name)throw new Error('Release has no version tag');
+byId('latestVersion').textContent='Latest release: '+release.tag_name;
+if(release.html_url)byId('releasePage').href=release.html_url;
+for(var i=0;i<release.assets.length;i++){if(release.assets[i].name==='7-segment-esp-clock-firmware.bin'){asset=release.assets[i];break;}}
+if(asset){byId('downloadRelease').href=asset.browser_download_url;assetSection.hidden=false;status.textContent='Download the OTA BIN, then upload it through the firmware updater.';}else{status.textContent='The latest release has no OTA BIN. Use the releases page to inspect its assets.';}
+}catch(e){status.textContent='Could not read the GitHub release response. Use the releases page instead.';}
+});
+}
+byId('checkRelease').addEventListener('click',checkLatestRelease);
 function signalBars(rssi){return rssi>=-55?'[▂▄▆█]':rssi>=-65?'[▂▄▆_]':rssi>=-75?'[▂▄__]':'[▂___]';}
 function scanWifi(){
 var button=byId('scanWifiButton'),select=byId('networks'),status=byId('scanStatus');
@@ -114,6 +136,31 @@ function restartClock(){byId('message').textContent='Restarting…';apiRequest('
 refreshStatus();setInterval(refreshStatus,2000);
 </script></body></html>)HTML";
 
+const char kUpdatePage[] PROGMEM = R"HTML(<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Firmware update · 7 Segment Clock</title><style>{{STYLES}}</style></head>
+<body><main><header><h1>Firmware update</h1><div class="muted">303WIFILC01 · installed {{VERSION}}</div></header>
+<section class="card"><h2>Choose an image</h2>
+<form id="updateForm" method="post" action="/update" enctype="multipart/form-data">
+<label for="imageType">Update type</label><select id="imageType"><option value="firmware">Firmware (recommended)</option><option value="filesystem">LittleFS filesystem (advanced)</option></select>
+<label for="imageFile">Image file</label><input id="imageFile" name="firmware" type="file" accept=".bin,.bin.gz" required>
+<div id="firmwareHelp"><p>Use this for normal firmware upgrades or to restore a release. Accepted formats are <strong>.bin</strong> and <strong>.bin.gz</strong>.</p><small>From GitHub releases: <code>7-segment-esp-clock-firmware.bin</code><br>From a local build: <code>.pio/build/303WIFILC01/firmware.bin</code><br>Do not upload the ELF or SHA256SUMS file.</small></div>
+<div id="filesystemHelp" hidden><p><strong>Advanced:</strong> use this only to replace the 64 KB LittleFS configuration partition. Accepted formats are <strong>.bin</strong> and <strong>.bin.gz</strong>.</p><small>Build with <code>pio run --target buildfs</code> and select <code>.pio/build/303WIFILC01/littlefs.bin</code>. This is not a firmware update and can erase saved Wi-Fi, MQTT, and clock settings.</small></div>
+<button id="updateButton" type="submit">Start upgrade</button>
+<p id="updateStatus" role="status" aria-live="polite"></p>
+<p class="muted"><small>Keep this page open and the clock powered on until it reboots.</small></p>
+</form></section>
+<section class="card"><h2>Downloads</h2><p>Get prebuilt images from the <a href="https://github.com/jekader/7-segment-esp-clock/releases/latest" target="_blank" rel="noopener">latest GitHub release</a>, or return to the <a href="/">clock portal</a> to check for updates.</p></section>
+</main><script>
+function byId(id){return document.getElementById(id);}
+function updateImageHelp(){var filesystem=byId('imageType').value==='filesystem';byId('firmwareHelp').hidden=filesystem;byId('filesystemHelp').hidden=!filesystem;}
+byId('imageType').addEventListener('change',updateImageHelp);
+byId('updateForm').addEventListener('submit',function(){byId('imageFile').name=byId('imageType').value;byId('updateButton').disabled=true;byId('imageType').disabled=true;byId('updateStatus').textContent='Upgrade in progress. Do not close this page or disconnect power until the clock reboots.';});
+</script></body></html>)HTML";
+
+const char kUpdateResultPage[] PROGMEM = R"HTML(<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">{{REDIRECT}}<title>Update result · 7 Segment Clock</title><style>{{STYLES}}</style></head>
+<body><main><section class="card"><h1>{{RESULT_TITLE}}</h1><p>{{RESULT_DETAIL}}</p><p><a href="/">Return to the clock portal</a></p></section></main></body></html>)HTML";
+
 } // namespace
 
 WebPortal::WebPortal(ConfigStore& config, Tm1650Display& display)
@@ -122,8 +169,9 @@ WebPortal::WebPortal(ConfigStore& config, Tm1650Display& display)
 void WebPortal::begin(StatusProvider statusProvider) {
     statusProvider_ = statusProvider;
 
-    httpUpdater_.setup(&server_);
-
+    server_.on("/update", HTTP_GET, [this]() { handleUpdate(); });
+    server_.on("/update", HTTP_POST, [this]() { handleUpdateResult(); },
+               [this]() { handleUpdateUpload(); });
     server_.on("/", HTTP_GET, [this]() { handleRoot(); });
     server_.on("/api/status", HTTP_GET, [this]() { handleStatus(); });
     server_.on("/api/wifi/networks", HTTP_GET, [this]() { handleWifiNetworks(); });
@@ -225,6 +273,7 @@ String WebPortal::jsonEscape(const String& value) {
 void WebPortal::handleRoot() {
     const ClockConfig& config = config_.get();
     String page = FPSTR(kPage);
+    page.replace("{{STYLES}}", FPSTR(kPageStyle));
     page.replace("{{VERSION}}", VERSION);
     page.replace("{{SSID}}", htmlEscape(config.ssid));
     page.replace("{{PASSWORD}}", htmlEscape(config.password));
@@ -255,6 +304,82 @@ void WebPortal::handleRoot() {
     server_.sendHeader("Cache-Control", "no-store, max-age=0");
     server_.sendHeader("Pragma", "no-cache");
     server_.send(200, "text/html", page);
+}
+
+void WebPortal::handleUpdate() {
+    String page = FPSTR(kUpdatePage);
+    page.replace("{{STYLES}}", FPSTR(kPageStyle));
+    page.replace("{{VERSION}}", VERSION);
+    server_.sendHeader("Cache-Control", "no-store, max-age=0");
+    server_.send(200, "text/html", page);
+}
+
+void WebPortal::handleUpdateResult() {
+    if (updateSucceeded_) {
+        sendUpdateResult(true);
+    } else {
+        if (updaterError_.isEmpty()) updaterError_ = "No valid image was received.";
+        sendUpdateResult(false);
+    }
+}
+
+void WebPortal::sendUpdateResult(bool success) {
+    String page = FPSTR(kUpdateResultPage);
+    page.replace("{{STYLES}}", FPSTR(kPageStyle));
+    page.replace("{{REDIRECT}}", success ? "<meta http-equiv=\"refresh\" content=\"15;url=/\">" : "");
+    page.replace("{{RESULT_TITLE}}", success ? "Update complete" : "Update failed");
+    page.replace("{{RESULT_DETAIL}}", success
+        ? "The image was installed. The clock is restarting; allow it time to reconnect before returning to the portal."
+        : "The image was not installed. " + htmlEscape(updaterError_));
+    if (success) server_.client().setNoDelay(true);
+    server_.send(success ? 200 : 500, "text/html", page);
+    if (success) {
+        delay(100);
+        server_.client().stop();
+        ESP.restart();
+    }
+}
+
+void WebPortal::setUpdaterError() {
+    StreamString error;
+    Update.printError(error);
+    updaterError_ = error.c_str();
+    Update.printError(Serial);
+}
+
+void WebPortal::handleUpdateUpload() {
+    HTTPUpload& upload = server_.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+        updaterError_.clear();
+        updateSucceeded_ = false;
+        Serial.printf("ota: %s update started for %s; do not close page until reboot\n",
+                      upload.name.c_str(), upload.filename.c_str());
+        if (upload.name == "filesystem") {
+            const size_t size = static_cast<size_t>(FS_end - FS_start);
+            close_all_fs();
+            if (!Update.begin(size, U_FS)) setUpdaterError();
+        } else if (upload.name == "firmware") {
+            const uint32_t size = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+            if (!Update.begin(size, U_FLASH)) setUpdaterError();
+        } else {
+            updaterError_ = "Select Firmware or LittleFS filesystem before uploading.";
+        }
+    } else if (upload.status == UPLOAD_FILE_WRITE && updaterError_.isEmpty()) {
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) setUpdaterError();
+    } else if (upload.status == UPLOAD_FILE_END && updaterError_.isEmpty()) {
+        if (Update.end(true)) {
+            updateSucceeded_ = true;
+            Serial.printf("ota: %s update complete (%u bytes); restarting\n",
+                          upload.name.c_str(), static_cast<unsigned>(upload.totalSize));
+        } else {
+            setUpdaterError();
+        }
+    } else if (upload.status == UPLOAD_FILE_ABORTED) {
+        Update.end();
+        updaterError_ = "Upload aborted before installation completed.";
+        Serial.println(F("ota: update aborted"));
+    }
+    yield();
 }
 
 void WebPortal::handleStatus() {

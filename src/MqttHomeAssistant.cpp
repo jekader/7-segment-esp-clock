@@ -1,4 +1,5 @@
 #include "MqttHomeAssistant.h"
+#include "Version.h"
 
 namespace {
 constexpr uint32_t kReconnectDelayMs = 5000;
