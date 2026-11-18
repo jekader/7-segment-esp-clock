@@ -24,9 +24,9 @@ Prebuilt images are available on the [releases page](https://github.com/jekader/
 
 | Release file | Purpose |
 | --- | --- |
-| `7-segment-esp-clock-firmware.bin` | Flashable ESP8266 firmware. Upload this file through an existing clock's `/update` page, or write it at address `0x0` with `esptool`. |
-| `7-segment-esp-clock-firmware.elf` | Matching linked image with debugging symbols. Use it for diagnostics, address-to-source lookup, and emulation; do not upload it through the OTA page. |
-| `SHA256SUMS` | SHA-256 checksums for the BIN and ELF files. |
+| `7-segment-esp-clock-ota.bin` | Application image for browser OTA updates at `/update`. Does not replace LittleFS settings. |
+| `7-segment-esp-clock-full.bin` | Complete 1 MiB serial-recovery image with firmware at `0x0`, a fresh 64 KB LittleFS at `0xEB000`, and `0xFF` padding. Flash at address `0x0`; existing settings are replaced. |
+| `SHA256SUMS` | SHA-256 checksums for both BIN files. ELF files are used during CI verification but are not published as release artifacts. |
 
 To verify both downloads on Linux (or another system with GNU coreutils), place all three files in the same directory and run:
 
@@ -34,12 +34,12 @@ To verify both downloads on Linux (or another system with GNU coreutils), place 
 sha256sum --check SHA256SUMS
 ```
 
-For a clock already running firmware with browser OTA support, open **http://CLOCK_IP/update**, select **Firmware**, and upload `7-segment-esp-clock-firmware.bin`. The clock restarts after a successful update. In the portal's **Firmware update** section, **Check latest release** uses the browser's Internet connection to query GitHub, shows the installed and latest versions, and links directly to the matching OTA BIN. Download that file and select it in the updater. The releases page remains available if GitHub cannot be reached.
+For a clock already running firmware with browser OTA support, open **http://CLOCK_IP/update**, download the selected **OTA** build, and drag `7-segment-esp-clock-ota.bin` into the upload area. The newest available build is pre-selected. Older releases using `7-segment-esp-clock-firmware.bin` are also recognized. Keep the page open and the clock powered on until it reboots.
 
 For a first installation over USB serial, put the clock into its ESP8266 flashing bootloader: disconnect power, hold **SET**, reconnect power, and release **SET** after the status LED blinks once. Then run (adjusting the port as needed):
 
 ```sh
-esptool --port /dev/ttyUSB0 write-flash 0x0 7-segment-esp-clock-firmware.bin
+esptool --port /dev/ttyUSB0 write-flash 0x0 7-segment-esp-clock-full.bin
 ```
 
 Before replacing original firmware, consider making a backup:
@@ -76,11 +76,11 @@ The settings page changes take effect after a short automatic restart. Brightnes
 
 ### Browser OTA updates
 
-Open **http://CLOCK_IP/update** and select an image type and file. The default **Firmware** option accepts a release `7-segment-esp-clock-firmware.bin` or local `.pio/build/303WIFILC01/firmware.bin` image (`.bin` or `.bin.gz`). Do not upload the ELF or checksum file. Keep the page open and the clock powered on until it reboots; the page and UART log both report the upgrade's progress and result.
+Open **http://CLOCK_IP/update** to download a release or select a local image. The default **Firmware** option accepts `7-segment-esp-clock-ota.bin`, older `7-segment-esp-clock-firmware.bin` releases, or local `.pio/build/303WIFILC01/firmware.bin` (`.bin` or `.bin.gz`). The release dropdown pre-selects the newest available build. Do not upload the **full recovery image** through OTA. Keep the page open and the clock powered on until it reboots; the page and UART log both report the upgrade's progress and result.
 
-The advanced **LittleFS filesystem** option replaces the 64 KB configuration partition. Only select it when intentionally replacing Wi-Fi, MQTT, and clock settings. Build a compatible image with `pio run --target buildfs` and select `.pio/build/303WIFILC01/littlefs.bin`; this is not a normal firmware update.
+The full 1 MiB recovery image is only for serial flashing at address `0x0`. It includes a fresh 64 KB LittleFS image and replaces saved settings.
 
-Anyone who can reach the portal can update the firmware, so use it only on a trusted network.
+The advanced **LittleFS filesystem** option replaces only the 64 KB configuration partition. Only select it when intentionally replacing Wi-Fi, MQTT, and clock settings. Build a compatible image with `pio run --target buildfs` and select `.pio/build/303WIFILC01/littlefs.bin`; this is not a normal firmware update.
 
 The firmware uses a 64 KB LittleFS layout to preserve enough contiguous space for OTA updates.
 
@@ -137,11 +137,13 @@ pio run --target upload
 pio device monitor
 ```
 
-The build writes `.pio/build/303WIFILC01/firmware.bin`, which can be uploaded through the browser OTA page. Hand-built images identify themselves as **v0.0.0**. CI replaces this with the exact Git tag (for example, `v7.1.0`) when building a release and verifies that the tag is embedded in the ELF.
+The build writes `.pio/build/303WIFILC01/firmware.bin` for browser OTA and `.pio/build/303WIFILC01/littlefs.bin` for filesystem updates. Hand-built images identify themselves as **v0.0.0**. CI replaces this with the exact Git tag (for example, `v7.1.0`) when building a release and verifies that the tag is embedded in the ELF.
+
+Run `python scripts/package_release.py` after `pio run` and `pio run --target buildfs` to generate `dist/7-segment-esp-clock-ota.bin` and the complete 1 MiB `dist/7-segment-esp-clock-full.bin` recovery image, plus `dist/SHA256SUMS`.
 
 ### CI releases
 
-Pull requests receive a PlatformIO build check and downloadable workflow artifacts. Version tags matching `v*.*.*` (for example, `v7.1.0`) also create a GitHub release containing the OTA BIN, matching ELF, and SHA-256 checksums. These are the files linked from [Installation](#installation).
+Pull requests receive a PlatformIO build check and downloadable workflow artifacts. Version tags matching `v*.*.*` (for example, `v7.1.0`) also create a GitHub release containing OTA and full-recovery BIN files with SHA-256 checksums. These are the files linked from [Installation](#installation).
 
 ## Module layout and messages
 

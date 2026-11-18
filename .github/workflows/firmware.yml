@@ -40,6 +40,9 @@ jobs:
       - name: Compile firmware
         run: pio run
 
+      - name: Build LittleFS image
+        run: pio run --target buildfs
+
       - name: Verify tagged firmware version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
@@ -54,12 +57,7 @@ jobs:
           PY
 
       - name: Package build artifacts
-        run: |
-          mkdir dist
-          cp .pio/build/303WIFILC01/firmware.bin dist/7-segment-esp-clock-firmware.bin
-          cp .pio/build/303WIFILC01/firmware.elf dist/7-segment-esp-clock-firmware.elf
-          cd dist
-          sha256sum 7-segment-esp-clock-firmware.bin 7-segment-esp-clock-firmware.elf > SHA256SUMS
+        run: python scripts/package_release.py
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
@@ -87,6 +85,6 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            dist/7-segment-esp-clock-firmware.bin
-            dist/7-segment-esp-clock-firmware.elf
+            dist/7-segment-esp-clock-ota.bin
+            dist/7-segment-esp-clock-full.bin
             dist/SHA256SUMS
