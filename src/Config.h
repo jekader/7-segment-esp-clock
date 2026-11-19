@@ -20,6 +20,8 @@ struct ClockConfig {
     bool use12Hour = false;
     bool blinkColon = true;
     bool periodicDateEnabled = false;
+    bool showDayOfWeek = false;
+    bool dateYearFirst = true;
     uint32_t dateDisplaySeconds = 3;
     uint32_t dateIntervalSeconds = 300;
     bool displayPower = true;

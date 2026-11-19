@@ -42,7 +42,9 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="sync">NTP sync interval (minutes)</label><input id="sync" name="sync" type="number" min="5" max="1440" value="{{SYNC}}" required>
 <label class="check"><input name="use12Hour" type="checkbox" value="1" {{HOUR12}}>Use 12-hour format (fourth dot indicates PM)</label>
 <label class="check"><input name="blinkColon" type="checkbox" value="1" {{COLONBLINK}}>Flash the time colon</label>
-<label class="check"><input name="periodicDate" type="checkbox" value="1" {{PERIODICDATE}}>Show the date periodically</label>
+<label class="check"><input name="periodicDate" type="checkbox" value="1" {{PERIODICDATE}}>Enable periodic date display</label>
+<label class="check"><input name="showDayOfWeek" type="checkbox" value="1" {{DAYOFWEEK}}>Include day of week before the date</label>
+<label for="dateYearFirst">Date order</label><select id="dateYearFirst" name="dateYearFirst"><option value="1" {{YEARFIRST}}>YYYY-MM-DD</option><option value="0" {{DAYFIRST}}>DD-MM-YYYY</option></select>
 <label for="dateDisplaySeconds">Date display duration (seconds)</label><input id="dateDisplaySeconds" name="dateDisplaySeconds" type="number" min="1" max="60" value="{{DATEDURATION}}" required>
 <label for="dateIntervalSeconds">Date display interval (seconds)</label><input id="dateIntervalSeconds" name="dateIntervalSeconds" type="number" min="10" max="86400" value="{{DATEINTERVAL}}" required><small>The display returns to the time after each duration. Duration cannot exceed the interval.</small>
 <h2>MQTT / Home Assistant</h2>
@@ -304,6 +306,9 @@ void WebPortal::handleRoot() {
     page.replace("{{HOUR12}}", config.use12Hour ? "checked" : "");
     page.replace("{{COLONBLINK}}", config.blinkColon ? "checked" : "");
     page.replace("{{PERIODICDATE}}", config.periodicDateEnabled ? "checked" : "");
+    page.replace("{{DAYOFWEEK}}", config.showDayOfWeek ? "checked" : "");
+    page.replace("{{YEARFIRST}}", config.dateYearFirst ? "selected" : "");
+    page.replace("{{DAYFIRST}}", config.dateYearFirst ? "" : "selected");
     page.replace("{{DATEDURATION}}", String(config.dateDisplaySeconds));
     page.replace("{{DATEINTERVAL}}", String(config.dateIntervalSeconds));
     page.replace("{{SENSOROVERRIDE}}", config.sensorOverride ? "checked" : "");
@@ -465,6 +470,8 @@ void WebPortal::handleSettings() {
     updated.use12Hour = server_.arg("use12Hour") == "1";
     updated.blinkColon = server_.arg("blinkColon") == "1";
     updated.periodicDateEnabled = server_.arg("periodicDate") == "1";
+    updated.showDayOfWeek = server_.arg("showDayOfWeek") == "1";
+    updated.dateYearFirst = server_.arg("dateYearFirst") == "1";
     updated.dateDisplaySeconds = server_.arg("dateDisplaySeconds").toInt();
     updated.dateIntervalSeconds = server_.arg("dateIntervalSeconds").toInt();
     updated.brightness = server_.arg("brightness").toInt();

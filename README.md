@@ -7,6 +7,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [maarten-pennin
 - Restores local time from the DS1302 at boot and periodically writes NTP time back to the RTC.
 - Configurable NTP servers, POSIX timezone, sync interval, 12/24-hour display, and flashing or solid colon.
 - Optional periodic date display, disabled by default, with configurable duration and interval in seconds.
+- Scrolling full-date sequences with optional day-of-week prefix and selectable `YYYY-MM-DD` or `DD-MM-YYYY` order.
 - Scrolls the assigned IP address once after the first network connection following boot, using digit dots to save space.
 - Responsive local web UI with live time, connection, RTC, synchronization, uptime, and last reboot reason.
 - Eight native TM1650 brightness levels, controlled from the UI or the brightness button.
@@ -124,7 +125,7 @@ Complete daylight-saving rules switch automatically; fixed-offset settings do no
 ### Buttons
 
 - **SET (hold 3 s):** open the configuration AP until station Wi-Fi connects.
-- **UP/date (press):** toggle between time and day/month when the sensor override is disabled.
+- **UP/date (press):** scroll the selected full-date sequence, optionally prefixed by the day of week, when the sensor override is disabled.
 - **DOWN/brightness (press):** cycle through levels 1–8 and save the selected level when automatic brightness is disabled.
 
 ## Building from source

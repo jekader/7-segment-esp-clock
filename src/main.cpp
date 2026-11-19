@@ -34,6 +34,7 @@ bool rtcValid = false;
 bool showIpAfterBoot = true;
 bool showDate = false;
 bool periodicDateActive = false;
+bool dateSequenceStartPending = false;
 uint32_t nextPeriodicDateAt = 0;
 uint32_t periodicDateUntil = 0;
 uint32_t lastRenderAt = 0;
@@ -58,6 +59,25 @@ String formatTime(time_t value) {
     char text[24];
     strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &local);
     return String(text);
+}
+
+String formatDateSequence(const struct tm& value, bool includeDayOfWeek, bool yearFirst) {
+    static const char dayNames[] = "SunMonTueWedThuFriSat";
+    String text;
+    if (includeDayOfWeek) {
+        const int day = constrain(value.tm_wday, 0, 6);
+        text = String(dayNames).substring(day * 3, day * 3 + 3) + " ";
+    }
+    char date[16];
+    if (yearFirst) {
+        snprintf(date, sizeof(date), "%04d-%02d-%02d", value.tm_year + 1900,
+                 value.tm_mon + 1, value.tm_mday);
+    } else {
+        snprintf(date, sizeof(date), "%02d-%02d-%04d", value.tm_mday,
+                 value.tm_mon + 1, value.tm_year + 1900);
+    }
+    text += date;
+    return text;
 }
 
 String formatUptime() {
@@ -162,6 +182,7 @@ void updatePeriodicDate(uint32_t nowMs) {
 
     if (!periodicDateActive && static_cast<int32_t>(nowMs - nextPeriodicDateAt) >= 0) {
         periodicDateActive = true;
+        dateSequenceStartPending = true;
         periodicDateUntil = nowMs + config.dateDisplaySeconds * 1000UL;
         nextPeriodicDateAt = nowMs + intervalMs;
     }
@@ -233,7 +254,15 @@ void loop() {
     if (setPressed) mqtt.publishButton("set", "PRESS");
     if (datePressed) mqtt.publishButton("date", "PRESS");
     if (brightnessPressed) mqtt.publishButton("brightness", "PRESS");
-    if (datePressed && !configStore.get().sensorOverride) showDate = !showDate;
+    if (datePressed && !configStore.get().sensorOverride) {
+        showDate = !showDate;
+        if (showDate) {
+            dateSequenceStartPending = true;
+        } else {
+            dateSequenceStartPending = false;
+            display.clearMessage();
+        }
+    }
 
     if (brightnessPressed && !configStore.get().sensorOverride) {
         const uint8_t level = hardwareDisplay.brightness() % 8 + 1;
@@ -282,8 +311,15 @@ void loop() {
         if (now >= kMinimumValidTime) {
             struct tm local {};
             localtime_r(&now, &local);
-            if (showDate || periodicDateActive) display.showDate(local);
-            else display.showTime(local, configStore.get().use12Hour,
+            if (showDate || periodicDateActive) {
+                if (dateSequenceStartPending) {
+                    const ClockConfig& config = configStore.get();
+                    const uint32_t duration = showDate ? 0 : config.dateDisplaySeconds * 1000UL;
+                    display.showMessage(formatDateSequence(local, config.showDayOfWeek,
+                                                           config.dateYearFirst), duration);
+                    dateSequenceStartPending = false;
+                }
+            } else display.showTime(local, configStore.get().use12Hour,
                                   !configStore.get().blinkColon || (nowMs / 500) % 2 == 0);
         } else {
             hardwareDisplay.showText(portal.accessPointActive() ? "SET" : "NtP");

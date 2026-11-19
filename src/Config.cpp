@@ -22,6 +22,8 @@ void assignIfPresent(ClockConfig& config, const String& key, const String& value
     else if (key == "hour_12") config.use12Hour = value == "1";
     else if (key == "colon_blink") config.blinkColon = value == "1";
     else if (key == "periodic_date") config.periodicDateEnabled = value == "1";
+    else if (key == "day_of_week") config.showDayOfWeek = value == "1";
+    else if (key == "year_first") config.dateYearFirst = value == "1";
     else if (key == "date_seconds") config.dateDisplaySeconds = value.toInt();
     else if (key == "date_interval") config.dateIntervalSeconds = value.toInt();
     else if (key == "display_power") config.displayPower = value == "1";
@@ -129,6 +131,8 @@ bool ConfigStore::save(const ClockConfig& config) {
     file.print("hour_12="); file.println(clean.use12Hour ? 1 : 0);
     file.print("colon_blink="); file.println(clean.blinkColon ? 1 : 0);
     file.print("periodic_date="); file.println(clean.periodicDateEnabled ? 1 : 0);
+    file.print("day_of_week="); file.println(clean.showDayOfWeek ? 1 : 0);
+    file.print("year_first="); file.println(clean.dateYearFirst ? 1 : 0);
     file.print("date_seconds="); file.println(clean.dateDisplaySeconds);
     file.print("date_interval="); file.println(clean.dateIntervalSeconds);
     file.print("display_power="); file.println(clean.displayPower ? 1 : 0);
