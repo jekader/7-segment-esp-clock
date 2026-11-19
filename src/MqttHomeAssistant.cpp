@@ -49,7 +49,8 @@ void MqttHomeAssistant::begin() {
 String MqttHomeAssistant::deviceMetadata() const {
     return "\"device\":{\"identifiers\":[\"" + deviceId_ +
            "\"],\"name\":\"" + deviceName_ +
-           "\",\"model\":\"303WIFILC01\",\"manufacturer\":\"DIY\",\"sw_version\":\"" VERSION "\"}";
+           "\",\"model\":\"303WIFILC01\",\"manufacturer\":\"DIY\",\"sw_version\":\"" VERSION
+           "\",\"configuration_url\":\"http://" + WiFi.localIP().toString() + "/\"}";
 }
 
 void MqttHomeAssistant::connect() {

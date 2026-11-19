@@ -97,7 +97,7 @@ The clock connects only while station Wi-Fi is available, reconnects automatical
 - Brightness state: `7segclock/7seg_a1b2c3/display/brightness`; send an integer from 1 to 8 to the same topic plus `/set`.
 - Button events: `7segclock/7seg_a1b2c3/button/set`, `.../button/date`, and `.../button/brightness`. Every button publishes non-retained `PRESS` events; SET also publishes `HOLD` after three seconds.
 
-Home Assistant discovers a display switch, brightness number, button-press device-automation triggers, and whichever BME280 temperature, humidity, pressure, or raw-light sensors are enabled and available. MQTT display state also follows local web and button changes. Automatic LDR brightness takes priority over manual brightness commands. Display power and manual brightness changes are saved. Button events are reported even when the hardware override disables their normal Date/Brightness behavior.
+Home Assistant discovers a display switch, brightness number, button-press device-automation triggers, and whichever BME280 temperature, humidity, pressure, or raw-light sensors are enabled and available. The shared Home Assistant device includes a configuration link to the clock's web portal. MQTT display state also follows local web and button changes. Automatic LDR brightness takes priority over manual brightness commands. Display power and manual brightness changes are saved. Button events are reported even when the hardware override disables their normal Date/Brightness behavior.
 
 MQTT uses a plain TCP connection without TLS; use a trusted local broker and network. Disabling a sensor clears its retained Home Assistant discovery entry on the next broker connection.
 
