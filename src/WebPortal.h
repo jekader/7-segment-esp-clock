@@ -41,6 +41,7 @@ private:
     void handleBrightness();
     void handlePower();
     void handleSettings();
+    void handleFactoryReset();
     void handleRestart();
     void handleCaptiveRedirect();
     void scheduleRestart();

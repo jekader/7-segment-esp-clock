@@ -1,6 +1,6 @@
 # Sensor connections
 
-The 303WIFILC01 does not expose spare GPIOs on its programming header. Its UP and DOWN pads can nevertheless be repurposed once routine clock control has moved to the web portal or Home Assistant. The firmware's sensor override trades those two normal button functions for environmental inputs while retaining **SET** for portal access and recovery.
+The 303WIFILC01 does not expose spare GPIOs on its programming header. Its UP and DOWN pads can nevertheless be repurposed once routine clock control has moved to the web portal or Home Assistant. The firmware's sensor override trades those two normal button functions for environmental inputs while retaining **SET** for boot-time portal access and recovery.
 
 Disconnect power before changing wiring. The ESP8266 and BME280 must use **3.3 V logic and power**, not 5 V.
 

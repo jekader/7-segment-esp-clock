@@ -55,7 +55,7 @@ config: no saved configuration; using defaults
 display: TM1650 not responding
 rtc: initialization failed
 wifi: no credentials; starting configuration AP
-portal: 7SEG-EEB001 at 192.168.4.1
+portal: CLOCK-EEB001 at 192.168.4.1
 setup: complete
 ```
 

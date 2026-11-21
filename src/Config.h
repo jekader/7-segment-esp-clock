@@ -40,6 +40,7 @@ public:
     bool save(const ClockConfig& config);
     bool saveBrightness(uint8_t brightness);
     bool saveDisplayPower(bool enabled);
+    bool factoryReset();
 
 private:
     static constexpr const char* kPath = "/config.txt";

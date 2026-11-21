@@ -15,6 +15,7 @@
 namespace {
 constexpr uint8_t kStatusLedPin = 2;
 constexpr uint32_t kWifiFailurePortalDelayMs = 30000;
+constexpr uint32_t kBootPortalTimeoutMs = 120000;
 constexpr time_t kMinimumValidTime = 1704067200; // 2024-01-01 00:00:00 UTC
 
 ConfigStore configStore;
@@ -32,6 +33,7 @@ uint32_t disconnectedSince = 0;
 time_t lastNtpSync = 0;
 bool rtcValid = false;
 bool showIpAfterBoot = true;
+bool wifiConnectedOnce = false;
 bool showDate = false;
 bool periodicDateActive = false;
 bool dateSequenceStartPending = false;
@@ -117,11 +119,11 @@ String statusJson() {
     json += "\"thpEnabled\":" + String(sensors.thpEnabled() ? "true" : "false") + ",";
     json += "\"thpAvailable\":" + String(sensors.thpAvailable() ? "true" : "false") + ",";
     json += "\"temperature\":";
-    json += sensors.thpAvailable() ? String(sensors.temperatureC(), 2) : "null";
+    json += sensors.thpAvailable() && !isnan(sensors.temperatureC()) ? String(sensors.temperatureC(), 2) : "null";
     json += ",\"humidity\":";
-    json += sensors.thpAvailable() ? String(sensors.humidityPercent(), 1) : "null";
+    json += sensors.thpAvailable() && !isnan(sensors.humidityPercent()) ? String(sensors.humidityPercent(), 1) : "null";
     json += ",\"pressure\":";
-    json += sensors.thpAvailable() ? String(sensors.pressureHpa(), 1) : "null";
+    json += sensors.thpAvailable() && !isnan(sensors.pressureHpa()) ? String(sensors.pressureHpa(), 1) : "null";
     json += ",";
     json += "\"ap\":" + String(portal.accessPointActive() ? "true" : "false") + ",";
     json += "\"apName\":\"" + jsonEscape(portal.accessPointName()) + "\",";
@@ -140,8 +142,10 @@ void restoreTimeFromRtc() {
 
     struct tm saved {};
     if (!rtc.read(saved)) return;
-    saved.tm_isdst = -1;
+    saved.tm_isdst = 0;
+    setTZ("UTC0");
     const time_t value = mktime(&saved);
+    setTZ(configStore.get().timezone.c_str());
     if (value < kMinimumValidTime) return;
 
     const timeval tv = {value, 0};
@@ -243,10 +247,7 @@ void loop() {
     sensors.update();
     updatePeriodicDate(nowMs);
 
-    if (buttons.setWasHeld()) {
-        mqtt.publishButton("set", "HOLD");
-        portal.startAccessPoint();
-    }
+    if (buttons.setWasHeld()) mqtt.publishButton("set", "HOLD");
 
     const bool setPressed = buttons.wasPressed(Buttons::Set);
     const bool datePressed = buttons.wasPressed(Buttons::Date);
@@ -277,6 +278,7 @@ void loop() {
 
     const bool connected = WiFi.status() == WL_CONNECTED;
     if (connected) {
+        wifiConnectedOnce = true;
         if (disconnectedSince != 0) {
             const String ip = WiFi.localIP().toString();
             Serial.printf("wifi: connected, IP %s\n", ip.c_str());
@@ -289,7 +291,13 @@ void loop() {
         portal.stopAccessPoint();
     } else {
         if (disconnectedSince == 0) disconnectedSince = nowMs;
-        if (nowMs - disconnectedSince >= kWifiFailurePortalDelayMs) portal.startAccessPoint();
+        if (!wifiConnectedOnce && nowMs < kBootPortalTimeoutMs &&
+            nowMs - disconnectedSince >= kWifiFailurePortalDelayMs) {
+            portal.startAccessPoint();
+        }
+    }
+    if (portal.accessPointActive() && nowMs >= kBootPortalTimeoutMs) {
+        portal.stopAccessPoint();
     }
     digitalWrite(kStatusLedPin, connected && !portal.accessPointActive() ? HIGH : LOW);
 
@@ -297,9 +305,9 @@ void loop() {
         ntpSyncPending = false;
         const time_t now = time(nullptr);
         if (now >= kMinimumValidTime) {
-            struct tm local {};
-            localtime_r(&now, &local);
-            if (rtcValid && rtc.write(local)) Serial.println(F("rtc: synchronized from NTP"));
+            struct tm utc {};
+            gmtime_r(&now, &utc);
+            if (rtcValid && rtc.write(utc)) Serial.println(F("rtc: synchronized from NTP"));
             else if (rtcValid) Serial.println(F("rtc: NTP write failed"));
             lastNtpSync = now;
         }

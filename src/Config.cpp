@@ -145,7 +145,6 @@ bool ConfigStore::save(const ClockConfig& config) {
     file.flush();
     file.close();
 
-    LittleFS.remove(kPath);
     if (!LittleFS.rename(kTempPath, kPath)) {
         LittleFS.remove(kTempPath);
         return false;
@@ -159,6 +158,13 @@ bool ConfigStore::saveBrightness(uint8_t brightness) {
     ClockConfig updated = config_;
     updated.brightness = constrain(brightness, 1, 8);
     return save(updated);
+}
+
+bool ConfigStore::factoryReset() {
+    if (!LittleFS.format()) return false;
+    config_ = ClockConfig{};
+    sanitize(config_);
+    return true;
 }
 
 bool ConfigStore::saveDisplayPower(bool enabled) {

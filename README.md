@@ -4,7 +4,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [maarten-pennin
 
 ## Features
 
-- Restores local time from the DS1302 at boot and periodically writes NTP time back to the RTC.
+- Stores UTC in the DS1302 RTC and renders local time from the configured POSIX timezone, including DST rules.
 - Configurable NTP servers, POSIX timezone, sync interval, 12/24-hour display, and flashing or solid colon.
 - Optional periodic date display, disabled by default, with configurable duration and interval in seconds.
 - Scrolling full-date sequences with optional day-of-week prefix and selectable `YYYY-MM-DD` or `DD-MM-YYYY` order.
@@ -15,7 +15,7 @@ A PlatformIO firmware for the **303WIFILC01** clock, ported from [maarten-pennin
 - On-demand Wi-Fi network scanning with signal strength and one-click SSID selection.
 - Browser-based OTA firmware updates at `/update`.
 - Optional MQTT integration with Home Assistant discovery, environmental sensors, display power/brightness control, and button events. Disabled by default.
-- Automatic configuration AP after 30 seconds without Wi-Fi, or on demand by holding **SET** for three seconds.
+- Boot-time-only configuration AP named `CLOCK-XXXXXX`, available for up to two minutes unless station Wi-Fi connects first; a reboot is required to reopen it.
 - Full printable seven-segment ASCII font and a scrolling, timed message interface for future integrations.
 - Optional BME280 environmental monitoring and LDR automatic brightness using repurposed button connections.
 
@@ -69,17 +69,21 @@ This firmware targets the unmodified 303WIFILC01:
 
 ## Configuration
 
-On first boot, or when Wi-Fi remains unavailable for 30 seconds, the clock starts an open AP named `7SEG-XXXXXX`. Connect to it and open **http://192.168.4.1/**. Captive-network detection should open this page automatically.
+On first boot, or when Wi-Fi remains unavailable for 30 seconds, the clock starts an open AP named `CLOCK-XXXXXX`. Connect to it and open **http://192.168.4.1/**. Captive-network detection should open this page automatically.
 
-Holding **SET** for three seconds also enables the AP. The AP stops automatically whenever a station Wi-Fi connection is established; use the assigned station IP to access the portal afterward.
+The configuration AP is available only during the first **two minutes after boot**. It stops as soon as station Wi-Fi connects, or when the two-minute window expires, and stays off for the remainder of operation—even if Wi-Fi is later lost. Restart the clock to enable a new configuration-AP window and access the portal when the station network is unavailable.
 
-The settings page changes take effect after a short automatic restart. Brightness and display-power changes apply and save immediately. Configuration is stored in LittleFS; Wi-Fi and MQTT passwords are **not encrypted** in flash or in the local configuration page.
+The settings page changes take effect after a short automatic restart. Brightness and display-power changes apply and save immediately. Configuration is stored in LittleFS; Wi-Fi and MQTT passwords are **not encrypted** in flash, but saved passwords are not returned to the browser. Leave a password field blank to keep its saved value or enter a replacement. Password visibility can be toggled while entering a new password.
+
+**Factory reset** asks for confirmation, formats the configuration filesystem, and restarts with default Wi-Fi, MQTT, display, and clock settings.
 
 ### Browser OTA updates
 
 Open **http://CLOCK_IP/update** to download a release or select a local image. The default **Firmware** option accepts `7-segment-esp-clock-ota.bin`, older `7-segment-esp-clock-firmware.bin` releases, or local `.pio/build/303WIFILC01/firmware.bin` (`.bin` or `.bin.gz`). The release dropdown pre-selects the newest available build. Do not upload the **full recovery image** through OTA. Keep the page open and the clock powered on until it reboots; the page and UART log both report the upgrade's progress and result.
 
 The full 1 MiB recovery image is only for serial flashing at address `0x0`. It includes a fresh 64 KB LittleFS image and replaces saved settings.
+
+Firmware OTA is rejected if the upload would leave less than **64 KB of recovery margin** for a future replacement. Use a smaller build or serial recovery if that limit is reached.
 
 The advanced **LittleFS filesystem** option replaces only the 64 KB configuration partition. Only select it when intentionally replacing Wi-Fi, MQTT, and clock settings. Build a compatible image with `pio run --target buildfs` and select `.pio/build/303WIFILC01/littlefs.bin`; this is not a normal firmware update.
 
@@ -124,7 +128,7 @@ Complete daylight-saving rules switch automatically; fixed-offset settings do no
 
 ### Buttons
 
-- **SET (hold 3 s):** open the configuration AP until station Wi-Fi connects.
+- **SET (hold 3 s):** report a hold event over MQTT; SET at boot can open the boot-time configuration AP. A reboot is required to reopen the AP after its initial window or after station Wi-Fi connects.
 - **UP/date (press):** scroll the selected full-date sequence, optionally prefixed by the day of week, when the sensor override is disabled.
 - **DOWN/brightness (press):** cycle through levels 1–8 and save the selected level when automatic brightness is disabled.
 
@@ -167,6 +171,12 @@ display.clearMessage();
 ```
 
 The adapter should remain non-blocking and call its own handler from the main loop.
+
+## Security and reliability
+
+Saved Wi-Fi and MQTT passwords are not returned to the browser. Configuration writes use a temporary file followed by an atomic rename rather than deleting the previous configuration first. The RTC stores UTC, while all displayed dates and times use the configured local timezone. Sensor values that are NaN are reported as JSON `null` rather than producing invalid JSON.
+
+Full portal/OTA authentication and image-signature verification remain future work. If firmware outgrows the current OTA recovery margin, a flash-layout or partitioning redesign will also be required; the 64 KB check only prevents unsafe updates and does not solve that capacity limit.
 
 ## Development
 

@@ -9,6 +9,8 @@
 
 namespace {
 
+constexpr uint32_t kOtaRecoveryMarginBytes = 64UL * 1024UL;
+
 const char kPageStyle[] PROGMEM = R"CSS(:root{color-scheme:dark;--bg:#101418;--card:#1a2229;--text:#edf4f7;--muted:#9aabb5;--accent:#55d6a7;--line:#30404a}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif}main{max-width:680px;margin:auto;padding:24px 16px 48px}h1{font-size:1.7rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 18px}.muted{color:var(--muted)}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:18px}.time{font-size:2.8rem;font-weight:650;letter-spacing:.06em;font-variant-numeric:tabular-nums}.status{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.status span{color:var(--muted)}.status strong{display:block;overflow-wrap:anywhere}label{display:block;margin:16px 0 6px;font-weight:600}input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:#10171c;color:var(--text);font:inherit}input[type=checkbox]{width:auto;margin-right:8px}.check{font-weight:500}.row{display:flex;align-items:center;gap:14px}.row input{flex:1}.level{font-size:1.4rem;min-width:2ch;text-align:center;color:var(--accent)}button{border:0;border-radius:9px;padding:11px 18px;background:var(--accent);color:#082019;font:600 16px system-ui;cursor:pointer;margin-top:20px}button.secondary{background:#34444e;color:var(--text)}.actions{display:flex;gap:10px;flex-wrap:wrap}small{display:block;color:var(--muted);margin-top:5px}#message{min-height:24px;margin-top:12px;color:var(--accent)}a{color:var(--accent)}.networkRow{display:flex;align-items:stretch;gap:10px}.networkRow select{flex:1;min-width:0}.networkRow button{margin:0;white-space:nowrap}button:disabled{cursor:wait;opacity:.65}.dropZone{border:2px dashed var(--line);border-radius:12px;padding:24px 16px;text-align:center;color:var(--muted);margin-top:16px;cursor:pointer}.dropZone.dragOver{border-color:var(--accent);color:var(--accent);background:#162b27}@media(max-width:420px){.status{grid-template-columns:1fr}.time{font-size:2.3rem}.networkRow{flex-direction:column}})CSS";
 
 const char kPage[] PROGMEM = R"HTML(<!doctype html>
@@ -34,8 +36,8 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <form class="card" id="settings" method="post" action="/api/settings"><h2>Settings</h2>
 <label for="networks">Available Wi-Fi networks</label><div class="networkRow"><select id="networks"><option value="">Scan to see nearby networks</option></select><button type="button" class="secondary" id="scanWifiButton">Scan networks</button></div><small id="scanStatus" role="status">Select a network to fill in its name. Filled bars indicate signal strength.</small>
 <label for="ssid">Wi-Fi network</label><input id="ssid" name="ssid" maxlength="32" value="{{SSID}}" autocomplete="off" required>
-<label for="password">Wi-Fi password</label><input id="password" name="password" type="password" maxlength="64" value="{{PASSWORD}}" autocomplete="new-password"><small>Leave empty for an open network.</small>
-<label class="check"><input id="showPassword" type="checkbox">Show Wi-Fi password</label>
+<label for="password">Wi-Fi password</label><input id="password" name="password" type="password" maxlength="64" autocomplete="new-password"><small>Blank keeps the saved password. Enter a new one to replace it.</small>
+<label class="check"><input id="showPassword" type="checkbox">Show Wi-Fi password while entering</label>
 <label for="timezone">POSIX timezone</label><input id="timezone" name="timezone" maxlength="63" value="{{TIMEZONE}}" required><small>Examples: <code>UTC0</code> or <code>CET-1CEST,M3.5.0,M10.5.0/3</code>. DST switches automatically when daylight-saving rules are included; fixed offsets such as <code>UTC0</code> never switch.</small>
 <label for="ntp1">Primary NTP server</label><input id="ntp1" name="ntp1" maxlength="63" value="{{NTP1}}" required>
 <label for="ntp2">Secondary NTP server</label><input id="ntp2" name="ntp2" maxlength="63" value="{{NTP2}}">
@@ -52,7 +54,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label for="mqttHost">Broker host or IP</label><input id="mqttHost" name="mqttHost" maxlength="63" value="{{MQTTHOST}}" placeholder="mqtt.local">
 <label for="mqttPort">Broker port</label><input id="mqttPort" name="mqttPort" type="number" min="1" max="65535" value="{{MQTTPORT}}" required>
 <label for="mqttUsername">MQTT username (optional)</label><input id="mqttUsername" name="mqttUsername" maxlength="64" value="{{MQTTUSERNAME}}" autocomplete="off">
-<label for="mqttPassword">MQTT password (optional)</label><input id="mqttPassword" name="mqttPassword" type="password" maxlength="64" value="{{MQTTPASSWORD}}" autocomplete="new-password">
+<label for="mqttPassword">MQTT password (optional)</label><input id="mqttPassword" name="mqttPassword" type="password" maxlength="64" autocomplete="new-password"><small>Blank keeps the saved password.</small>
 <label for="mqttBaseTopic">Base topic</label><input id="mqttBaseTopic" name="mqttBaseTopic" maxlength="48" value="{{MQTTTOPIC}}" required>
 <label for="mqttDiscoveryPrefix">Home Assistant discovery prefix</label><input id="mqttDiscoveryPrefix" name="mqttDiscoveryPrefix" maxlength="48" value="{{MQTTDISCOVERY}}" required>
 <label for="mqttTelemetrySeconds">Sensor publish interval (seconds)</label><input id="mqttTelemetrySeconds" name="mqttTelemetrySeconds" type="number" min="5" max="3600" value="{{MQTTINTERVAL}}" required><small>Home Assistant discovery is published automatically. MQTT uses an unencrypted connection.</small>
@@ -66,7 +68,7 @@ const char kPage[] PROGMEM = R"HTML(<!doctype html>
 <label class="check"><input name="thpSensor" type="checkbox" value="1" {{THPSENSOR}}>BME280 temperature / humidity / pressure sensor</label><small>BME280 SDA → UP/GPIO4, SCL → P1.RX/GPIO3. Use 3.3 V and external I²C pull-ups. TX remains available for logging.</small>
 </div>
 <input type="hidden" name="brightness" id="brightnessSetting" value="{{BRIGHTNESS}}">
-<div class="actions"><button type="submit">Save & restart</button><button type="button" class="secondary" onclick="restartClock()">Restart</button></div><div id="message" role="status"></div>
+<div class="actions"><button type="submit">Save & restart</button><button type="button" class="secondary" onclick="restartClock()">Restart</button><button type="button" class="secondary" onclick="factoryReset()">Factory reset</button></div><div id="message" role="status"></div>
 </form>
 <p class="muted"><small>Configuration is stored on the device. Wi-Fi and MQTT passwords are not encrypted in flash.</small></p>
 </main><script>
@@ -128,6 +130,7 @@ byId('scanWifiButton').addEventListener('click',scanWifi);
 function serializeForm(form){var fields=[];for(var i=0;i<form.elements.length;i++){var field=form.elements[i];if(!field.name||field.disabled)continue;if((field.type==='checkbox'||field.type==='radio')&&!field.checked)continue;fields.push(encodeURIComponent(field.name)+'='+encodeURIComponent(field.value));}return fields.join('&');}
 byId('settings').addEventListener('submit',function(e){e.preventDefault();byId('message').textContent='Saving…';apiRequest('POST','/api/settings',serializeForm(e.target),function(ok,text,httpStatus){byId('message').textContent=ok||httpStatus===0?'Saved. Restarting…':'Could not save settings.';});});
 function restartClock(){byId('message').textContent='Restarting…';apiRequest('POST','/api/restart',null,function(){});}
+function factoryReset(){if(!confirm('Erase all clock and network settings and restart?'))return;byId('message').textContent='Erasing configuration…';apiRequest('POST','/api/factory-reset',null,function(ok){byId('message').textContent=ok?'Configuration erased. Restarting…':'Factory reset failed.';});}
 refreshStatus();setInterval(refreshStatus,2000);
 </script></body></html>)HTML";
 
@@ -191,6 +194,7 @@ void WebPortal::begin(StatusProvider statusProvider) {
     server_.on("/api/brightness", HTTP_POST, [this]() { handleBrightness(); });
     server_.on("/api/display/power", HTTP_POST, [this]() { handlePower(); });
     server_.on("/api/settings", HTTP_POST, [this]() { handleSettings(); });
+    server_.on("/api/factory-reset", HTTP_POST, [this]() { handleFactoryReset(); });
     server_.on("/api/restart", HTTP_POST, [this]() { handleRestart(); });
     server_.on("/generate_204", HTTP_GET, [this]() { handleCaptiveRedirect(); });
     server_.on("/hotspot-detect.html", HTTP_GET, [this]() { handleCaptiveRedirect(); });
@@ -221,7 +225,7 @@ void WebPortal::startAccessPoint() {
     WiFi.softAPmacAddress(mac);
     char suffix[7];
     snprintf(suffix, sizeof(suffix), "%02X%02X%02X", mac[3], mac[4], mac[5]);
-    apName_ = "7SEG-" + String(suffix);
+    apName_ = "CLOCK-" + String(suffix);
 
     WiFi.mode(WIFI_AP_STA);
     if (!WiFi.softAP(apName_.c_str())) {
@@ -289,12 +293,10 @@ void WebPortal::handleRoot() {
     page.replace("{{STYLES}}", FPSTR(kPageStyle));
     page.replace("{{VERSION}}", VERSION);
     page.replace("{{SSID}}", htmlEscape(config.ssid));
-    page.replace("{{PASSWORD}}", htmlEscape(config.password));
     page.replace("{{TIMEZONE}}", htmlEscape(config.timezone));
     page.replace("{{MQTTHOST}}", htmlEscape(config.mqttHost));
     page.replace("{{MQTTPORT}}", String(config.mqttPort));
     page.replace("{{MQTTUSERNAME}}", htmlEscape(config.mqttUsername));
-    page.replace("{{MQTTPASSWORD}}", htmlEscape(config.mqttPassword));
     page.replace("{{MQTTTOPIC}}", htmlEscape(config.mqttBaseTopic));
     page.replace("{{MQTTDISCOVERY}}", htmlEscape(config.mqttDiscoveryPrefix));
     page.replace("{{MQTTINTERVAL}}", String(config.mqttTelemetrySeconds));
@@ -376,7 +378,15 @@ void WebPortal::handleUpdateUpload() {
             if (!Update.begin(size, U_FS)) setUpdaterError();
         } else if (upload.name == "firmware") {
             const uint32_t size = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
-            if (!Update.begin(size, U_FLASH)) setUpdaterError();
+            if (upload.contentLength == 0) {
+                updaterError_ = "Upload size is unknown; cannot verify the OTA recovery margin.";
+                Serial.println(updaterError_);
+            } else if (upload.contentLength > size || size - upload.contentLength < kOtaRecoveryMarginBytes) {
+                updaterError_ = "Not enough OTA space to preserve a 64 KB recovery margin. Use serial flashing or a smaller build.";
+                Serial.println(updaterError_);
+            } else if (!Update.begin(size, U_FLASH)) {
+                setUpdaterError();
+            }
         } else {
             updaterError_ = "Select Firmware or LittleFS filesystem before uploading.";
         }
@@ -454,12 +464,12 @@ void WebPortal::handlePower() {
 void WebPortal::handleSettings() {
     ClockConfig updated = config_.get();
     updated.ssid = server_.arg("ssid");
-    updated.password = server_.arg("password");
+    if (!server_.arg("password").isEmpty()) updated.password = server_.arg("password");
     updated.mqttEnabled = server_.arg("mqttEnabled") == "1";
     updated.mqttHost = server_.arg("mqttHost");
     updated.mqttPort = server_.arg("mqttPort").toInt();
     updated.mqttUsername = server_.arg("mqttUsername");
-    updated.mqttPassword = server_.arg("mqttPassword");
+    if (!server_.arg("mqttPassword").isEmpty()) updated.mqttPassword = server_.arg("mqttPassword");
     updated.mqttBaseTopic = server_.arg("mqttBaseTopic");
     updated.mqttDiscoveryPrefix = server_.arg("mqttDiscoveryPrefix");
     updated.mqttTelemetrySeconds = server_.arg("mqttTelemetrySeconds").toInt();
@@ -482,6 +492,15 @@ void WebPortal::handleSettings() {
     updated.lightBright = server_.arg("lightBright").toInt();
 
     if (!config_.save(updated)) {
+        server_.send(500, "application/json", "{\"ok\":false}");
+        return;
+    }
+    server_.send(200, "application/json", "{\"ok\":true}");
+    scheduleRestart();
+}
+
+void WebPortal::handleFactoryReset() {
+    if (!config_.factoryReset()) {
         server_.send(500, "application/json", "{\"ok\":false}");
         return;
     }
